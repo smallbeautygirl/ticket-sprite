@@ -431,21 +431,48 @@ async def test_requester_deletes_interview_with_its_files(app, deps, vivian, kev
     assert not (deps.settings.upload_dir / iid).exists()
 
 
-async def test_cannot_delete_while_the_engine_works(app, deps, vivian, llm):
-    gate = asyncio.Event()
-    next_round = llm.next_round
+def _stuck_engine(llm):
+    """A round that never finishes on its own, like a Claude Code run that is still reading."""
+    started = asyncio.Event()
 
-    async def slow_round(ctx, knowledge, progress=None):
-        await gate.wait()
-        return await next_round(ctx, knowledge, progress)
+    async def stuck_round(ctx, knowledge, progress=None):
+        started.set()
+        await asyncio.Event().wait()
 
-    llm.next_round = slow_round
+    llm.next_round = stuck_round
+    return started
+
+
+async def test_requester_stops_the_engine_while_it_works(app, deps, vivian, kevin, llm):
+    started = _stuck_engine(llm)
+    next_round = type(llm).next_round.__get__(llm)
     iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
-    r = await vivian.delete(f"/api/interviews/{iid}")
-    assert r.status_code == 409
-    gate.set()
+    await asyncio.wait_for(started.wait(), 1)
+
+    assert (await kevin.post(f"/api/interviews/{iid}/stop")).status_code == 403
+    assert (await vivian.post(f"/api/interviews/{iid}/stop")).status_code == 200
+    await asyncio.wait_for(deps.drain(), 1)
+    d = await _detail(vivian, iid)
+    assert not d["engine_busy"] and d["engine_progress"] is None
+    assert "停" in d["engine_error"]
+
+    # Retry picks the interview back up
+    llm.next_round = next_round
+    assert (await vivian.post(f"/api/interviews/{iid}/retry")).status_code == 200
     await deps.drain()
-    assert (await vivian.delete(f"/api/interviews/{iid}")).status_code == 200
+    d = await _detail(vivian, iid)
+    assert _pending(d) and d["engine_error"] is None
+
+
+async def test_delete_while_the_engine_works_stops_it(app, deps, vivian, llm):
+    started = _stuck_engine(llm)
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
+    await asyncio.wait_for(started.wait(), 1)
+
+    r = await asyncio.wait_for(vivian.delete(f"/api/interviews/{iid}"), 2)
+    assert r.status_code == 200
+    await asyncio.wait_for(deps.drain(), 1)
+    assert (await vivian.get(f"/api/interviews/{iid}")).status_code == 404
 
 
 async def test_audience_defaults_by_role_and_reaches_the_prompt(app, deps, vivian, llm):

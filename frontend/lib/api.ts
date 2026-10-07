@@ -209,6 +209,7 @@ export const api = {
   applySpecRevision: (id: string, force: boolean) =>
     request(`/interviews/${id}/spec/revision/apply`, { method: "POST", body: json({ force }) }),
   discardSpecRevision: (id: string) => request(`/interviews/${id}/spec/revision`, { method: "DELETE" }),
+  stop: (id: string) => request(`/interviews/${id}/stop`, { method: "POST" }),
   retry: (id: string) => request(`/interviews/${id}/retry`, { method: "POST" }),
   deleteInterview: (id: string) => request(`/interviews/${id}`, { method: "DELETE" }),
   handoff: (id: string, question_ids: string[], to_email: string, notify: boolean) =>

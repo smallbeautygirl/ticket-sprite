@@ -16,8 +16,18 @@ function Elapsed({ since }: { since: string }) {
   return <>{Math.floor(sec / 60)}:{String(sec % 60).padStart(2, "0")}</>;
 }
 
-/** The sprite reading while the engine works, with what it has looked at so far. */
-export default function Thinking({ title, subtitle, progress }: { title: string; subtitle: string; progress: EngineProgress | null }) {
+/** The sprite reading while the engine works, with what it has looked at so far. onStop lets the Requester call it off. */
+export default function Thinking({
+  title,
+  subtitle,
+  progress,
+  onStop,
+}: {
+  title: string;
+  subtitle: string;
+  progress: EngineProgress | null;
+  onStop?: () => void;
+}) {
   const looked = progress ? progress.read_count + progress.searches : 0;
   const latest = progress?.reads[progress.reads.length - 1];
   const [playing, setPlaying] = useState(false);
@@ -72,6 +82,11 @@ export default function Thinking({ title, subtitle, progress }: { title: string;
         {!playing && (
           <button className="link small" onClick={() => setPlaying(true)}>
             等的時候玩一下
+          </button>
+        )}
+        {onStop && (
+          <button className="link small" onClick={onStop}>
+            停止
           </button>
         )}
       </div>

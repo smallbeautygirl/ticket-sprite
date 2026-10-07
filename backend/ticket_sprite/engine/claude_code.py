@@ -9,8 +9,11 @@ and every read elsewhere is denied by `--permission-mode dontAsk`.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
+import os
 import shutil
+import signal
 import tempfile
 from pathlib import Path
 
@@ -121,6 +124,7 @@ class ClaudeCodeInterviewer:
                 proc = await asyncio.create_subprocess_exec(
                     *cmd, cwd=cwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
                     stdin=asyncio.subprocess.DEVNULL, limit=STREAM_LINE_LIMIT,
+                    start_new_session=True,  # its own process group, so stopping it also stops its tools
                 )
             except FileNotFoundError as exc:
                 raise EngineError(f"找不到 Claude Code CLI：{self._s.claude_code_bin}") from exc
@@ -131,10 +135,14 @@ class ClaudeCodeInterviewer:
                     _result_event(proc.stdout, progress, cwd), self._s.claude_code_timeout_seconds
                 )
                 await proc.wait()
-            except TimeoutError as exc:
-                proc.kill()
+            except BaseException as exc:
+                # timed out, or the Requester stopped the sprite (task cancelled)
+                with contextlib.suppress(ProcessLookupError):
+                    os.killpg(proc.pid, signal.SIGKILL)
                 await proc.wait()
-                raise EngineError("Claude Code 逾時") from exc
+                if isinstance(exc, TimeoutError):
+                    raise EngineError("Claude Code 逾時") from exc
+                raise
             finally:
                 err = await stderr
 

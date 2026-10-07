@@ -174,6 +174,11 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     });
   }
 
+  async function doStop() {
+    if (!confirm("要停止小精靈嗎？這一輪的進度會丟掉，之後可以按「重試」重新開始。")) return;
+    await run(() => api.stop(id));
+  }
+
   async function doFinish() {
     if (pending.length && !confirm(`還有 ${pending.length} 題未回答，會列為 Open Questions。確定要產出 Spec？`)) return;
     await run(() => api.finish(id));
@@ -195,8 +200,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           {d.is_requester && (
             <button
               className="link danger small"
-              disabled={busy || d.engine_busy}
-              title={d.engine_busy ? "小精靈處理完才能刪除" : undefined}
+              disabled={busy}
               onClick={doDelete}
             >
               刪除
@@ -278,6 +282,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
             title="小精靈正在翻書找資料…"
             subtitle={`查閱 Knowledge Source，準備第 ${(rounds.length ? rounds[rounds.length - 1][0] : 0) + 1} 輪問題`}
             progress={d.engine_progress}
+            onStop={d.is_requester ? doStop : undefined}
           />
           {d.questions.length === 0 && (
             <div className="stack" aria-hidden="true">
@@ -354,7 +359,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
       {error && <div className="notice danger" role="alert">{error}</div>}
 
-      {d.status !== "interviewing" && <SpecPanel d={d} me={me} meta={meta} onChanged={load} />}
+      {d.status !== "interviewing" && <SpecPanel d={d} me={me} meta={meta} onChanged={load} onStop={doStop} />}
 
       {d.is_requester && interviewing && (!done || selected.size > 0) && (
         <div className="sticky-bar stack">

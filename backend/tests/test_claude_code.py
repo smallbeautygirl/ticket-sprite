@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import stat
@@ -191,3 +192,31 @@ async def test_shared_owner_login_requires_an_allowlist(settings, llm, notifier)
     with pytest.raises(RuntimeError, match="ALLOWED_EMAILS"):
         async with app.router.lifespan_context(app):
             pass
+
+
+async def test_cancelling_a_run_kills_the_cli(settings, tmp_path):
+    pid_file = tmp_path / "pid"
+    script = tmp_path / "slow-claude"
+    script.write_text(
+        f"#!{sys.executable}\n"
+        "import os, time\n"
+        f"open({str(pid_file)!r}, 'w').write(str(os.getpid()))\n"
+        "time.sleep(30)\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    settings.claude_code_bin = str(script)
+
+    run = asyncio.create_task(ClaudeCodeInterviewer(settings).next_round(
+        _ctx(), KnowledgeSource(root=settings.product_root, depth=Depth.CODE),
+    ))
+    for _ in range(200):
+        if pid_file.exists() and pid_file.read_text():
+            break
+        await asyncio.sleep(0.01)
+    pid = int(pid_file.read_text())
+    run.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.wait_for(run, 2)
+    with pytest.raises(ProcessLookupError):
+        os.kill(pid, 0)

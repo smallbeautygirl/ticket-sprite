@@ -79,14 +79,30 @@ class Deps:
     tasks: set[asyncio.Task] = field(default_factory=set)
     # interview id → what the engine is doing; present only while it runs
     progress: dict[str, EngineProgress] = field(default_factory=dict)
+    # interview id → its engine task, so the Requester can stop it
+    running: dict[str, asyncio.Task] = field(default_factory=dict)
     # recent ADO assignees for the Assignee picker: (fetched at, people)
     people_cache: tuple[float, list] | None = None
 
-    def spawn(self, coro) -> asyncio.Task:
+    def spawn(self, interview_id: str, coro) -> asyncio.Task:
         task = asyncio.create_task(coro)
         self.tasks.add(task)
-        task.add_done_callback(self.tasks.discard)
+        self.running[interview_id] = task
+
+        def done(t: asyncio.Task) -> None:
+            self.tasks.discard(t)
+            if self.running.get(interview_id) is t:
+                del self.running[interview_id]
+
+        task.add_done_callback(done)
         return task
+
+    async def stop(self, interview_id: str) -> None:
+        """Cancel the Interview's engine task (which kills its Claude Code run) and wait for it to end."""
+        task = self.running.get(interview_id)
+        if task is not None:
+            task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
 
     async def drain(self) -> None:
         """Wait for background engine work (tests)."""
@@ -199,7 +215,7 @@ async def create_interview(
     await session.flush()
     await save_uploads(deps, session, interview, files, requester)
     await session.commit()
-    deps.spawn(generate_spec(deps, interview.id) if budget.limit == 0 else advance(deps, interview.id))
+    deps.spawn(interview.id, generate_spec(deps, interview.id) if budget.limit == 0 else advance(deps, interview.id))
     return interview
 
 
@@ -427,7 +443,7 @@ async def respond(deps: Deps, session: AsyncSession, question_id: str, user: str
             mentions=[requester],
         )
     if run_engine:
-        deps.spawn(advance(deps, interview.id))
+        deps.spawn(interview.id, advance(deps, interview.id))
 
 
 async def edit_question(session: AsyncSession, question_id: str, user: str, title: str | None, body: str | None,
@@ -455,7 +471,7 @@ async def delete_interview(deps: Deps, session: AsyncSession, interview_id: str,
     if interview.requester_email != user:
         raise FlowError("只有 Requester 可以刪除", 403)
     if interview.engine_busy:
-        raise FlowError("小精靈還在處理這個 Interview，請等它完成再刪除", 409)
+        await deps.stop(interview_id)
     await session.delete(interview)
     await session.commit()
     shutil.rmtree(deps.settings.upload_dir / interview_id, ignore_errors=True)
@@ -479,7 +495,21 @@ async def withdraw_question(deps: Deps, session: AsyncSession, question_id: str,
         interview.engine_busy = True
     await session.commit()
     if run_engine:
-        deps.spawn(advance(deps, interview.id))
+        deps.spawn(interview.id, advance(deps, interview.id))
+
+
+async def stop_engine(deps: Deps, session: AsyncSession, interview_id: str, user: str) -> None:
+    """The Requester changed their mind while the sprite works: stop it; 重試 starts the step over."""
+    interview = await load_interview(session, interview_id)
+    if interview.requester_email != user:
+        raise FlowError("只有 Requester 可以停止小精靈", 403)
+    if not interview.engine_busy:
+        return
+    await deps.stop(interview_id)
+    await session.refresh(interview)
+    interview.engine_busy = False
+    interview.engine_error = "已停止小精靈。可以修改需求後按「重試」重新開始，或直接刪除。"
+    await session.commit()
 
 
 async def retry_engine(deps: Deps, session: AsyncSession, interview_id: str, user: str) -> None:
@@ -491,9 +521,9 @@ async def retry_engine(deps: Deps, session: AsyncSession, interview_id: str, use
     interview.engine_busy = True
     await session.commit()
     if interview.spec_markdown is None and interview.status == InterviewStatus.SPEC_DRAFT:
-        deps.spawn(generate_spec(deps, interview.id))
+        deps.spawn(interview.id, generate_spec(deps, interview.id))
     else:
-        deps.spawn(advance(deps, interview.id))
+        deps.spawn(interview.id, advance(deps, interview.id))
 
 
 def unknown_core_count(interview: Interview) -> int:
@@ -647,7 +677,7 @@ async def finish(deps: Deps, session: AsyncSession, interview_id: str, user: str
         if h.status == HandoffStatus.OPEN:
             h.status = HandoffStatus.COMPLETED
     await session.commit()
-    deps.spawn(generate_spec(deps, interview.id))
+    deps.spawn(interview.id, generate_spec(deps, interview.id))
 
 
 async def generate_spec(deps: Deps, interview_id: str, as_revision: bool = False) -> None:
@@ -692,7 +722,7 @@ async def regenerate_spec(deps: Deps, session: AsyncSession, interview_id: str, 
     interview.engine_busy = True
     interview.engine_error = None
     await session.commit()
-    deps.spawn(generate_spec(deps, interview.id, as_revision=interview.status != InterviewStatus.SPEC_DRAFT))
+    deps.spawn(interview.id, generate_spec(deps, interview.id, as_revision=interview.status != InterviewStatus.SPEC_DRAFT))
 
 
 async def apply_spec_revision(deps: Deps, session: AsyncSession, interview_id: str, user: str, force: bool) -> None:

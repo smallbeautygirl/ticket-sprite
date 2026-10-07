@@ -24,6 +24,7 @@ interface Props {
   me: Me | null;
   meta: Meta | null;
   onChanged: () => void;
+  onStop: () => void;
 }
 
 // Azure DevOps Priority: how soon the team should pick it up (1 = most urgent)
@@ -47,7 +48,7 @@ const SEVERITY_HINT: Record<string, string> = {
   "4 - Low": "外觀、文字或小瑕疵",
 };
 
-export default function SpecPanel({ d, me, meta, onChanged }: Props) {
+export default function SpecPanel({ d, me, meta, onChanged, onStop }: Props) {
   const [title, setTitle] = useState(d.title || "");
   const [markdown, setMarkdown] = useState(d.spec_markdown || "");
   const [editing, setEditing] = useState(false);
@@ -153,6 +154,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
             : "完成後會取代目前的 Spec 草稿"
       }
       progress={d.engine_progress}
+      onStop={d.is_requester ? onStop : undefined}
     />
   );
 
@@ -218,6 +220,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
         title="小精靈正在整理 Spec…"
         subtitle="把回答、Open Question 和 Assumption 寫成 Spec"
         progress={d.engine_progress}
+      onStop={d.is_requester ? onStop : undefined}
       />
     ) : null;
   }
