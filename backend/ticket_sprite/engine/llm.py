@@ -229,7 +229,9 @@ def round_prompt(ctx: InterviewContext) -> str:
 BRIEF_SPEC_RULE = (
     "This Spec is the Requester's request to RD, not a design document. Keep it to about one page (roughly "
     "600 字). Write in product language: no file paths, line numbers, endpoints, SQL, tables, functions or "
-    "config names; RD will work those out. Skip the 相關模組／懷疑的模組 section. At most 5 acceptance "
+    "config names; RD will work those out. Do use the terms defined in CONTEXT.md and the ADRs (e.g. "
+    "Location, Exclusion Area, Ensemble Gate): they are the language PM, FAE and RD share, so name things "
+    "by them rather than paraphrasing. Skip the 相關模組／懷疑的模組 section. At most 5 acceptance "
     "criteria, each a behaviour a user can see; at most 5 Assumptions and only the Open Questions that need "
     "a decision. Leave out sections that would be empty. "
 )

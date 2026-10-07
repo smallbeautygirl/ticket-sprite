@@ -522,4 +522,5 @@ async def test_pm_and_fae_specs_are_requests_not_designs(app, deps, vivian, llm)
     await deps.drain()
     fae_ctx, rd_ctx = (ctx for kind, ctx in llm.calls if kind == "spec")
     assert "not a design document" in spec_prompt(fae_ctx) and fae_ctx.template.id == "grill_product"
+    assert "Do use the terms defined in CONTEXT.md" in spec_prompt(fae_ctx)
     assert "not a design document" not in spec_prompt(rd_ctx)
