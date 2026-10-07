@@ -184,8 +184,14 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
                 type="text"
                 placeholder="輸入 work item id 或標題關鍵字，換一個 Parent"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && search()}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  if (!e.target.value.trim()) setResults([]);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") search();
+                  if (e.key === "Escape") setResults([]);
+                }}
                 style={{ flex: 1, width: "auto" }}
                 disabled={!adoReady}
               />
@@ -195,6 +201,13 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
             </div>
             {results.length > 0 && (
               <div className="card list" style={{ padding: 0 }}>
+                <div className="row small muted" style={{ padding: "6px 14px", borderBottom: "1px solid var(--border)" }}>
+                  搜尋結果 {results.length} 筆，點一筆設為 Parent
+                  <span className="spacer" />
+                  <button className="link small" onClick={() => setResults([])}>
+                    收合
+                  </button>
+                </div>
                 {results.map((w) => (
                   <a
                     key={w.id}
