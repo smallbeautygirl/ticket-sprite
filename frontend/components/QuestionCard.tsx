@@ -1,13 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { api, Question } from "@/lib/api";
 import Markdown from "./Markdown";
 import Sprite from "./Sprite";
-
-// Picking an option answers the question; this long a window lets a mis-tap be taken back, since an
-// answer can't be changed once sent (and the last one starts the next round)
-const UNDO_MS = 2500;
 
 const RESOLVED_LABEL: Record<string, { text: string; cls: string }> = {
   answered: { text: "回答", cls: "" },
@@ -34,43 +30,12 @@ export default function QuestionCard({ q, isRequester, selectable, selected, cur
   const [draft, setDraft] = useState({ title: q.title, body: q.body, options: q.options.join("\n") });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [queued, setQueued] = useState<string | null>(null); // the option about to be sent
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flush = useRef<(() => void) | null>(null); // sends the queued answer now
-
-  // Leaving the page (or the card going away) sends what was picked rather than dropping it
-  useEffect(() => () => flush.current?.(), []);
 
   const isPremise = q.kind === "premise";
   const pending = q.status === "pending";
   const handedOff = !!q.handoff_id;
 
-  function cancelQueued() {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    flush.current = null;
-    setQueued(null);
-  }
-
-  function choose(option: string) {
-    cancelQueued();
-    // A note already typed in the box goes along with the picked option
-    const answer = text.trim() && text.trim() !== option ? `${option}\n${text.trim()}` : option;
-    const send = () => {
-      timer.current = null;
-      flush.current = null;
-      void api.respond(q.id, "answer", answer).then(onChanged, (err) => {
-        setQueued(null);
-        setError((err as Error).message);
-      });
-    };
-    setQueued(option);
-    flush.current = send;
-    timer.current = setTimeout(send, UNDO_MS);
-  }
-
   async function act(fn: () => Promise<unknown>) {
-    cancelQueued();
     setBusy(true);
     setError(null);
     try {
@@ -178,21 +143,11 @@ export default function QuestionCard({ q, isRequester, selectable, selected, cur
           {!isPremise && q.options.length > 0 && (
             <div className="options" role="group" aria-label="選項">
               {q.options.map((o) => (
-                <button key={o} disabled={busy} onClick={() => choose(o)} className={queued === o ? "on" : ""} aria-pressed={queued === o}>
+                <button key={o} onClick={() => setText(o)} className={text === o ? "on" : ""} aria-pressed={text === o}>
                   {o}
                   {o === q.recommendation && <span className="tag">建議</span>}
                 </button>
               ))}
-            </div>
-          )}
-          {queued !== null && (
-            <div className="queued" role="status">
-              <span className="countdown" aria-hidden="true" style={{ animationDuration: `${UNDO_MS}ms` }} />
-              <span>已選「{queued}」，即將送出</span>
-              <span className="spacer" />
-              <button className="link small" onClick={cancelQueued}>
-                復原
-              </button>
             </div>
           )}
           {isPremise ? (
@@ -229,15 +184,11 @@ export default function QuestionCard({ q, isRequester, selectable, selected, cur
             </>
           ) : (
             <>
-              <textarea
-                placeholder={q.options.length > 0 ? "點選項就會送出；要補充的話，先寫在這裡再點選項，或自行輸入回答" : "你的回答"}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-              />
+              <textarea placeholder="你的回答（可點上方選項再補充，或自行輸入）" value={text} onChange={(e) => setText(e.target.value)} />
               <div className="row actions">
                 <button
                   className="primary"
-                  disabled={busy || queued !== null || !text.trim()}
+                  disabled={busy || !text.trim()}
                   onClick={() => act(() => api.respond(q.id, "answer", text))}
                 >
                   回答
