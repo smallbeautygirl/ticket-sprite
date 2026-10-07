@@ -64,7 +64,7 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
         {selectable && <input type="checkbox" checked={selected} onChange={onToggle} aria-label="選擇以轉交" />}
         <span className="ref">{q.ref}</span>
         {isPremise && <span className="badge premise">Premise</span>}
-        {q.core && <span className="badge">核心</span>}
+        {q.core && <span className="badge core">核心</span>}
         <h3>{q.title}</h3>
         <span className="spacer" />
         {handedOff && <span className="badge accent">轉交 → {q.respondent.split("@")[0]}</span>}
@@ -99,14 +99,22 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
           </div>
         </div>
       ) : (
-        <div className="pre">{isPremise ? <>「{q.body}」</> : q.body}</div>
+        <div className="pre body">{isPremise ? <>「{q.body}」</> : q.body}</div>
       )}
 
-      {q.ai_note && <div className="evidence pre">🔍 {q.ai_note}</div>}
+      {q.ai_note && (
+        <div className="evidence">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-label="AI 查證">
+            <circle cx="11" cy="11" r="7" />
+            <path d="M20 20l-3.5-3.5" />
+          </svg>
+          <span className="pre">{q.ai_note}</span>
+        </div>
+      )}
 
       {pending && q.recommendation && (
         <div className="rec">
-          ➡️ <b>建議：</b>
+          <b>小精靈建議：</b>
           {q.recommendation}
           {q.rationale && <div className="muted small">{q.rationale}</div>}
         </div>
@@ -125,10 +133,11 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
       {q.can_respond && !editing && (
         <div className="stack">
           {!isPremise && q.options.length > 0 && (
-            <div className="chips">
+            <div className="options" role="group" aria-label="選項">
               {q.options.map((o) => (
-                <button key={o} onClick={() => setText(o)} className={text === o ? "primary" : ""}>
+                <button key={o} onClick={() => setText(o)} className={text === o ? "on" : ""} aria-pressed={text === o}>
                   {o}
+                  {o === q.recommendation && <span className="tag">建議</span>}
                 </button>
               ))}
             </div>
@@ -138,14 +147,14 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
               {correcting && (
                 <textarea autoFocus placeholder="正確的情況是…" value={text} onChange={(e) => setText(e.target.value)} />
               )}
-              <div className="row">
+              <div className="row actions">
                 {!correcting ? (
                   <>
                     <button className="primary" disabled={busy} onClick={() => act(() => api.respond(q.id, "confirm"))}>
-                      ✓ 正確
+                      對，沒錯
                     </button>
                     <button disabled={busy} onClick={() => setCorrecting(true)}>
-                      ✗ 不正確…
+                      不對，我來更正
                     </button>
                   </>
                 ) : (
@@ -167,8 +176,8 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
             </>
           ) : (
             <>
-              <textarea placeholder="你的回答（可點上方選項，或自行輸入）" value={text} onChange={(e) => setText(e.target.value)} />
-              <div className="row">
+              <textarea placeholder="你的回答（可點上方選項再補充，或自行輸入）" value={text} onChange={(e) => setText(e.target.value)} />
+              <div className="row actions">
                 <button
                   className="primary"
                   disabled={busy || !text.trim()}
@@ -177,11 +186,11 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
                   回答
                 </button>
                 <button disabled={busy} onClick={() => act(() => api.respond(q.id, "unknown"))} title="列入 Open Questions">
-                  不知道
+                  不知道 → Open Question
                 </button>
                 {q.can_skip && (
                   <button disabled={busy} onClick={() => act(() => api.respond(q.id, "skip"))} title="採用建議答案，標記為 Assumption">
-                    跳過（採用建議）
+                    跳過，採用建議
                   </button>
                 )}
               </div>

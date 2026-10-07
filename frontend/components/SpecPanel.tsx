@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, InterviewDetail, Me, Meta, WORK_ITEM_TYPE, WorkItem } from "@/lib/api";
 import Markdown from "./Markdown";
+import Sprite from "./Sprite";
 
 interface Props {
   d: InterviewDetail;
@@ -95,8 +96,12 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
 
   if (!d.spec_markdown) {
     return d.engine_busy ? (
-      <div className="card row">
-        <span className="spinner" /> AI 正在整理 Spec…
+      <div className="card thinking" aria-live="polite">
+        <Sprite pose="reading" size={72} />
+        <div className="stack" style={{ gap: 2 }}>
+          <h3>小精靈正在整理 Spec…</h3>
+          <span className="muted small">把回答、Open Question 和 Assumption 寫成 Spec</span>
+        </div>
       </div>
     ) : null;
   }

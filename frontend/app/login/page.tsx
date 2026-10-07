@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import Sprite from "@/components/Sprite";
 
 function LoginForm() {
   const router = useRouter();
@@ -34,9 +35,12 @@ function LoginForm() {
   return (
     <div style={{ maxWidth: 380, margin: "10vh auto 0" }}>
       <div className="card stack">
-        <div>
-          <h1>🧚 開票小精靈</h1>
+        <div className="row" style={{ gap: 14, alignItems: "center", flexWrap: "nowrap" }}>
+          <Sprite pose="head" size={64} />
+          <div>
+          <h1>開票小精靈</h1>
           <p className="muted small" style={{ margin: 0 }}>使用 Observ 帳號登入</p>
+          </div>
         </div>
         {devMode && <div className="notice warn small">開發模式：不驗證密碼</div>}
         <form className="stack" onSubmit={submit}>

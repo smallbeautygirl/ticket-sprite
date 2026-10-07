@@ -4,6 +4,34 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, InterviewDetail, Me, Meta, Question, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
 import QuestionCard from "@/components/QuestionCard";
 import SpecPanel from "@/components/SpecPanel";
+import Sprite from "@/components/Sprite";
+
+const ANSWERED = new Set(["answered", "confirmed", "corrected"]);
+
+function Stepper({ status }: { status: InterviewDetail["status"] }) {
+  const steps = ["Request", "拷問", "Spec", status === "decision_record" ? "Decision Record" : "ADO 票"];
+  const now = status === "interviewing" ? 1 : status === "spec_draft" ? 2 : 4;
+  return (
+    <ol className="stepper" aria-label="進度">
+      {steps.map((label, i) => (
+        <li key={label} className={i < now ? "done" : i === now ? "now" : ""} aria-current={i === now ? "step" : undefined}>
+          <span className="bar" />
+          {i + 1} · {label}
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+function Elapsed({ since }: { since: number }) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const sec = Math.max(0, Math.floor((now - since) / 1000));
+  return <>{Math.floor(sec / 60)}:{String(sec % 60).padStart(2, "0")}</>;
+}
 
 function byRound(questions: Question[]): [number, Question[]][] {
   const groups = new Map<number, Question[]>();
@@ -30,6 +58,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [handoffNotify, setHandoffNotify] = useState(true);
   const [handoffLink, setHandoffLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busySince, setBusySince] = useState<number | null>(null);
 
   const load = useCallback(() => {
     api
@@ -56,6 +85,12 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     return () => clearInterval(t);
   }, [d, load]);
 
+  // Measured from when this page first saw the engine working, not from the server
+  const engineBusy = !!d?.engine_busy;
+  useEffect(() => {
+    setBusySince(engineBusy ? Date.now() : null);
+  }, [engineBusy]);
+
   const rounds = useMemo(() => (d ? byRound(d.questions) : []), [d]);
 
   if (error && !d) return <div className="notice danger">{error}</div>;
@@ -64,6 +99,12 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const interviewing = d.status === "interviewing";
   const pending = d.questions.filter((q) => q.status === "pending");
   const myPending = pending.filter((q) => q.can_respond);
+  const live = d.questions.filter((q) => q.status !== "withdrawn");
+  const tally = {
+    answered: live.filter((q) => ANSWERED.has(q.status)).length,
+    open: live.filter((q) => q.status === "unknown").length,
+    assumed: live.filter((q) => q.status === "skipped").length,
+  };
   const selectable = (q: Question) =>
     !meta?.single_user && d.is_requester && interviewing && q.status === "pending" && q.respondent === d.requester;
 
@@ -94,19 +135,24 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="stack">
+    <div className="stack interview" style={{ gap: 20 }}>
       <div className="stack" style={{ gap: 6 }}>
         <div className="row">
           <span className="badge accent">{STATUS_LABEL[d.status]}</span>
           <span className="badge">{TYPE_LABEL[d.request_type]}</span>
           <span className="badge">{ROLE_LABEL[d.role]}</span>
-          <span className="muted small">{d.template_label}</span>
+          <span className="muted small">Template · {d.template_label}</span>
         </div>
         <h1>{d.title}</h1>
         <span className="muted small">
           Requester {d.requester} · {new Date(d.created_at).toLocaleString("zh-TW")}
         </span>
       </div>
+
+      <Stepper status={d.status} />
+
+      <div className="interview-cols">
+      <div className="interview-main stack">
 
       <details className="card" open={d.questions.length === 0}>
         <summary style={{ cursor: "pointer" }}>
@@ -118,7 +164,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           <div className="row" style={{ marginTop: 10 }}>
             {d.attachments.map((a) => (
               <a key={a.id} className="badge" href={`/api/interviews/${d.id}/attachments/${a.id}`} target="_blank" rel="noreferrer">
-                📎 {a.filename}
+                {a.filename}
               </a>
             ))}
           </div>
@@ -126,9 +172,9 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       </details>
 
       {d.summary && (
-        <div className="notice info">
-          <b>目前理解：</b>
-          {d.summary}
+        <div className="notice info stack" style={{ gap: 2 }}>
+          <b className="small" style={{ color: "var(--accent-strong)" }}>小精靈目前的理解</b>
+          <span>{d.summary}</span>
         </div>
       )}
 
@@ -140,7 +186,12 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
       {rounds.map(([r, qs]) => (
         <section key={r} className="stack">
-          <h2>第 {r} 輪</h2>
+          <div className="row" style={{ alignItems: "baseline", gap: 12, marginTop: 12 }}>
+            <h2 style={{ margin: 0 }}>第 {r} 輪</h2>
+            <span className="muted small">
+              {qs.filter((q) => q.status !== "withdrawn").length} 題 · 已回答 {qs.filter((q) => q.status !== "pending" && q.status !== "withdrawn").length}
+            </span>
+          </div>
           {qs.map((q) => (
             <QuestionCard
               key={q.id}
@@ -161,9 +212,33 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       ))}
 
       {interviewing && d.engine_busy && (
-        <div className="card row">
-          <span className="spinner" /> AI 正在查閱 Knowledge Source 並出題…
-        </div>
+        <>
+          <div className="card thinking" aria-live="polite">
+            <Sprite pose="reading" size={72} />
+            <div className="stack" style={{ gap: 2 }}>
+              <h3>小精靈正在翻書找資料…</h3>
+              <span className="muted small">
+                查閱 Knowledge Source，準備第 {(rounds.length ? rounds[rounds.length - 1][0] : 0) + 1} 輪問題
+                {busySince && (
+                  <>
+                    {" "}· 已等 <Elapsed since={busySince} />
+                  </>
+                )}
+              </span>
+            </div>
+          </div>
+          {d.questions.length === 0 && (
+            <div className="stack" aria-hidden="true">
+              {[0, 1].map((i) => (
+                <div key={i} className="card stack" style={{ gap: 12 }}>
+                  <div className="sk" style={{ width: 90, height: 16 }} />
+                  <div className="sk" style={{ width: "65%", height: 20 }} />
+                  <div className="sk" style={{ width: "90%", height: 12 }} />
+                </div>
+              ))}
+            </div>
+          )}
+        </>
       )}
       {d.engine_error && (
         <div className="notice danger row">
@@ -173,23 +248,10 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
         </div>
       )}
       {interviewing && d.engine_done && !d.engine_busy && (
-        <div className="notice ok">AI 認為已經問完了，可以產出 Spec。</div>
-      )}
-
-      {d.new_terms.length > 0 && (
-        <details className="card">
-          <summary style={{ cursor: "pointer" }}>
-            <b>New Terms</b> <span className="muted small">（{d.new_terms.length}，會列在 Spec 中交給 RD 決定是否收進詞彙表）</span>
-          </summary>
-          <ul>
-            {d.new_terms.map((t) => (
-              <li key={t.term}>
-                <b>{t.term}</b>：{t.meaning}
-                {t.conflict && <span className="badge warn" style={{ marginLeft: 6 }}>與 {t.conflict} 衝突</span>}
-              </li>
-            ))}
-          </ul>
-        </details>
+        <div className="notice ok with-sprite">
+          <Sprite pose="ticket" size={56} />
+          小精靈認為已經問完了，可以產出 Spec。
+        </div>
       )}
 
       {d.handoffs.length > 0 && (
@@ -271,8 +333,75 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
         </div>
       )}
       {!d.is_requester && interviewing && myPending.length === 0 && (
-        <div className="notice ok">轉給你的題目都回答完了，謝謝！</div>
+        <div className="notice ok with-sprite">
+          <Sprite pose="ticket" size={56} />
+          轉給你的題目都回答完了，謝謝！
+        </div>
       )}
+      </div>
+
+      <aside className="interview-aside stack">
+        <section className="card stack">
+          <h2 style={{ fontSize: 17 }}>Spec 成形中</h2>
+          <div className="tally">
+            <div className={tally.answered ? "ok" : ""}>
+              <b>{tally.answered}</b>
+              <span>Answer</span>
+            </div>
+            <div className={tally.open ? "warn" : ""}>
+              <b>{tally.open}</b>
+              <span>Open</span>
+            </div>
+            <div>
+              <b>{tally.assumed}</b>
+              <span>Assumption</span>
+            </div>
+          </div>
+          {live.length > 0 ? (
+            <ul className="qlist">
+              {live.map((q) => (
+                <li key={q.id}>
+                  <span>
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--muted)" }}>{q.ref}</span> {q.title}
+                  </span>
+                  {q.status === "pending" ? (
+                    q.can_respond ? (
+                      <span style={{ color: "var(--warn)" }}>待回答</span>
+                    ) : (
+                      <span className="muted">{q.respondent.split("@")[0]}</span>
+                    )
+                  ) : q.status === "unknown" ? (
+                    <span style={{ color: "var(--warn)" }}>Open</span>
+                  ) : q.status === "skipped" ? (
+                    <span className="muted">Assumption</span>
+                  ) : (
+                    <span style={{ color: "var(--ok)" }}>已回答</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="muted small" style={{ margin: 0 }}>
+              回答越多，Spec 越完整。答不出來就選「不知道」，會列為 Open Question 交給 RD。
+            </p>
+          )}
+        </section>
+
+        {d.new_terms.length > 0 && (
+          <section className="card stack" style={{ gap: 8 }}>
+            <h2 style={{ fontSize: 17 }}>New Terms</h2>
+            <span className="muted small">會列在 Spec 中，交給 RD 決定是否收進詞彙表</span>
+            {d.new_terms.map((t) => (
+              <div key={t.term} className="stack" style={{ gap: 2, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "var(--surface-2)" }}>
+                <b>{t.term}</b>
+                <span className="small" style={{ color: "var(--text-2)" }}>{t.meaning}</span>
+                {t.conflict && <span className="badge warn" style={{ alignSelf: "flex-start" }}>與 {t.conflict} 衝突</span>}
+              </div>
+            ))}
+          </section>
+        )}
+      </aside>
+      </div>
     </div>
   );
 }

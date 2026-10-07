@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, Me } from "@/lib/api";
+import Sprite from "@/components/Sprite";
 
 export default function TopBar() {
   const pathname = usePathname();
@@ -29,11 +30,14 @@ export default function TopBar() {
 
   return (
     <header className="topbar">
-      <Link href="/" className="brand">🧚 開票小精靈</Link>
+      <Link href="/" className="brand">
+        <Sprite pose="logo" size={28} />
+        開票小精靈
+      </Link>
       <nav>
-        <Link href="/">Interviews</Link>
-        <Link href="/new">新增 Request</Link>
-        <Link href="/settings">設定</Link>
+        <Link href="/" className={pathname === "/" || pathname.startsWith("/interviews") ? "on" : ""}>Interviews</Link>
+        <Link href="/new" className={pathname === "/new" ? "on" : ""}>新增 Request</Link>
+        <Link href="/settings" className={pathname === "/settings" ? "on" : ""}>設定</Link>
       </nav>
       {down && <span className="badge danger">{down}</span>}
       {me && (
