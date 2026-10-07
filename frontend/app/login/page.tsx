@@ -10,6 +10,7 @@ function LoginForm() {
   const params = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [devMode, setDevMode] = useState(false);
@@ -50,7 +51,29 @@ function LoginForm() {
           </label>
           <label className="field">
             <span>密碼</span>
-            <input type="password" required={!devMode} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <div className="password-input">
+              <input
+                type={showPassword ? "text" : "password"}
+                required={!devMode}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="icon"
+                aria-label={showPassword ? "隱藏密碼" : "顯示密碼"}
+                aria-pressed={showPassword}
+                title={showPassword ? "隱藏密碼" : "顯示密碼"}
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                  {showPassword && <path d="M4 4l16 16" />}
+                </svg>
+              </button>
+            </div>
           </label>
           {error && <div className="notice danger">{error}</div>}
           <button className="primary" disabled={busy} type="submit" style={{ justifyContent: "center" }}>

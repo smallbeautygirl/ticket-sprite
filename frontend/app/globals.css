@@ -212,6 +212,9 @@ button.icon.danger:hover:not(:disabled) { color: var(--danger); background: var(
 .stepper li.done { color: var(--text-2); }
 .stepper li.now { color: var(--text); font-weight: 700; }
 
+.password-input { position: relative; }
+.password-input input { padding-right: 44px; }
+.password-input button.icon { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
 .person-input { position: relative; }
 .person-input > input { width: 100%; }
 .person-list {
