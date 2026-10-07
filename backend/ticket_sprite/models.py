@@ -71,6 +71,8 @@ class User(Base):
     observ_id: Mapped[int | None] = mapped_column(Integer)
     display_name: Mapped[str | None] = mapped_column(String(200))
     default_role: Mapped[str] = mapped_column(String(8), default=Role.PM)
+    # True once they picked it in Settings; until then USER_ROLES sets it at each login
+    default_role_chosen: Mapped[bool | None] = mapped_column(Boolean)
     # ADO Credential (v1: PAT, Fernet-encrypted)
     ado_pat_encrypted: Mapped[str | None] = mapped_column(Text)
     ado_display_name: Mapped[str | None] = mapped_column(String(200))

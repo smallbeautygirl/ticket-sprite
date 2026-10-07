@@ -15,7 +15,7 @@ _Avoid_: User, 使用者, 提單人
 _Avoid_: Answerer, 回覆者
 
 **Role**:
-Requester 本次 Interview 所採用的身份：PM、FAE 或 RD（預設 PM）；只決定預設的 Interview Template 與 Knowledge Source 深度，不代表權限。
+Requester 本次 Interview 所採用的身份：PM、FAE（畫面上稱 Solution Engineer）或 RD（預設 PM）；只決定預設的 Interview Template 與 Knowledge Source 深度，不代表權限。
 _Avoid_: 權限, 職稱
 
 **Audience**:

@@ -69,6 +69,9 @@ async def login(
         session.add(user)
     user.observ_id = identity.observ_id or user.observ_id
     user.display_name = identity.display_name or user.display_name
+    mapped_role = settings.role_for(identity.email)
+    if mapped_role in set(Role) and not user.default_role_chosen:
+        user.default_role = mapped_role
     await session.commit()
 
     response.set_cookie(
@@ -134,6 +137,7 @@ class MeIn(BaseModel):
 async def update_me(body: MeIn, email: str = Depends(current_email), session: AsyncSession = Depends(get_session)):
     user = await _user(session, email)
     user.default_role = body.default_role
+    user.default_role_chosen = True
     await session.commit()
     return {"ok": True}
 

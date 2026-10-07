@@ -311,6 +311,29 @@ async def test_trial_allowlist(settings, llm, notifier):
         await vivian.aclose()
 
 
+async def test_user_roles_set_the_default_role_on_login(settings, llm, notifier):
+    from ticket_sprite.main import create_app
+
+    settings.user_roles = "Danny@linkervision.com=fae, froggy@linkervision.com=rd"
+    application = create_app(settings, llm=llm, notifier=notifier, background_jobs=False)
+    async with application.router.lifespan_context(application):
+        async def role_after_login(email: str) -> str:
+            c = await login(application, email)
+            role = (await c.get("/api/me")).json()["default_role"]
+            await c.aclose()
+            return role
+
+        assert await role_after_login("danny@linkervision.com") == "fae"
+        assert await role_after_login("amy@linkervision.com") == "pm"
+        assert await role_after_login("froggy@linkervision.com") == "rd"
+
+        # A Role someone picks in Settings outlives the mapping on later logins
+        froggy = await login(application, "froggy@linkervision.com")
+        assert (await froggy.put("/api/me", json={"default_role": "pm"})).status_code == 200
+        await froggy.aclose()
+        assert await role_after_login("froggy@linkervision.com") == "pm"
+
+
 async def test_engine_progress_is_shown_while_the_round_runs(app, deps, vivian, llm):
     gate = asyncio.Event()
     next_round = llm.next_round

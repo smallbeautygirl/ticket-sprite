@@ -236,7 +236,7 @@ export const api = {
     request<{ link: string }>(`/interviews/${id}/decision-record`, { method: "POST", body: json({ title }) }),
 };
 
-export const ROLE_LABEL: Record<Role, string> = { pm: "PM", fae: "FAE", rd: "RD" };
+export const ROLE_LABEL: Record<Role, string> = { pm: "PM", fae: "Solution Engineer", rd: "RD" };
 export const TYPE_LABEL: Record<RequestType, string> = { feature: "Feature", bug: "Bug", task: "Task" };
 export const STATUS_LABEL: Record<InterviewSummary["status"], string> = {
   interviewing: "拷問中",

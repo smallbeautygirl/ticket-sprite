@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     session_secret: str = "change-me"
     session_max_age_seconds: int = 60 * 60 * 24 * 7
     allowed_emails: str = ""  # comma-separated trial allowlist; empty = anyone who can log in to Observ
+    # comma-separated email=role (pm/fae/rd): the Role someone starts with until they pick their own
+    user_roles: str = ""
 
     # --- ADO ---
     ado_org: str = "linkerengineer"
@@ -66,6 +68,14 @@ class Settings(BaseSettings):
     @property
     def allowlist(self) -> set[str]:
         return {e.strip().lower() for e in self.allowed_emails.split(",") if e.strip()}
+
+    def role_for(self, email: str) -> str | None:
+        email = email.strip().lower()
+        for entry in self.user_roles.split(","):
+            who, _, role = entry.partition("=")
+            if who.strip().lower() == email and role.strip():
+                return role.strip().lower()
+        return None
 
     def may_log_in(self, email: str) -> bool:
         email = email.strip().lower()

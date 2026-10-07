@@ -27,7 +27,7 @@ interface Example {
 // Real requests from the trial, one per typical path through the form
 const EXAMPLES: Example[] = [
   {
-    title: "FAE 回報 bug",
+    title: "Solution Engineer 回報 bug",
     topic: "v19 改了白名單 event id，歷史事件查不到",
     hint: "原因和影響都清楚 → 不問，直接寫 Spec",
     role: "fae",
@@ -165,7 +165,7 @@ export default function NewRequest() {
           <span className="form-label">
             Role
             <Hint label="Role">
-              你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM、FAE 只看文件和 spec；RD 可以看程式碼。不影響權限。
+              你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM、Solution Engineer 只看文件和 spec；RD 可以看程式碼。不影響權限。
             </Hint>
           </span>
           <div className="seg" role="group" aria-label="Role">
@@ -204,7 +204,7 @@ export default function NewRequest() {
               <span className="form-label">
                 To
                 <Hint label="To">
-                  Spec 寫給誰看。小精靈會照對方需要知道的事來問、來寫。PM、FAE 預設給 RD；RD 預設給 PM。
+                  Spec 寫給誰看。小精靈會照對方需要知道的事來問、來寫。PM、Solution Engineer 預設給 RD；RD 預設給 PM。
                 </Hint>
               </span>
               <div className="seg" role="group" aria-label="To（Spec 寫給誰看）">
