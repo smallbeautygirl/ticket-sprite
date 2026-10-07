@@ -524,3 +524,53 @@ async def test_pm_and_fae_specs_are_requests_not_designs(app, deps, vivian, llm)
     assert "not a design document" in spec_prompt(fae_ctx) and fae_ctx.template.id == "grill_product"
     assert "Do use the terms defined in CONTEXT.md" in spec_prompt(fae_ctx)
     assert "not a design document" not in spec_prompt(rd_ctx)
+
+
+async def test_regenerating_a_draft_spec_replaces_it(app, deps, vivian, llm):
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
+                                                      "question_budget": "none"})).json()["id"]
+    await deps.drain()
+    await vivian.put(f"/api/interviews/{iid}/spec", json={"title": "t", "markdown": "edited by hand"})
+
+    assert (await vivian.post(f"/api/interviews/{iid}/spec/regenerate")).status_code == 200
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["spec_markdown"] != "edited by hand" and d["spec_revision"] is None
+    assert [k for k, _ in llm.calls] == ["spec", "spec"]
+
+
+async def test_regenerated_spec_updates_the_ticket_description(app, deps, vivian, kevin, fake_ado):
+    iid = await _spec_ready(vivian, deps, "feature")
+    await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t"})
+    ticket_id = (await _detail(vivian, iid))["ticket_id"]
+
+    assert (await kevin.post(f"/api/interviews/{iid}/spec/regenerate")).status_code == 403
+    assert (await vivian.post(f"/api/interviews/{iid}/spec/regenerate")).status_code == 200
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    revision = d["spec_revision"]
+    assert revision and not fake_ado.patched  # nothing reaches ADO until applied
+
+    fake_ado.description_editors = ["Kevin Lin"]
+    r = await vivian.post(f"/api/interviews/{iid}/spec/revision/apply", json={})
+    assert r.status_code == 409 and "Kevin Lin" in r.json()["detail"] and "Someone Else" not in r.json()["detail"]
+    assert not fake_ado.patched
+
+    r = await vivian.post(f"/api/interviews/{iid}/spec/revision/apply", json={"force": True})
+    assert r.status_code == 200, r.text
+    patch = fake_ado.patched[-1]
+    fields = {op["path"]: op["value"] for op in patch["ops"]}
+    assert patch["id"] == ticket_id and "/fields/Microsoft.VSTS.TCM.ReproSteps" not in fields
+    assert f"/interviews/{iid}" in fields["/fields/System.Description"]
+    d = await _detail(vivian, iid)
+    assert d["spec_markdown"] == revision and d["spec_revision"] is None
+
+
+async def test_spec_revision_can_be_discarded(app, deps, vivian, fake_ado):
+    iid = await _spec_ready(vivian, deps, "feature")
+    await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t"})
+    await vivian.post(f"/api/interviews/{iid}/spec/regenerate")
+    await deps.drain()
+    assert (await vivian.delete(f"/api/interviews/{iid}/spec/revision")).status_code == 200
+    assert (await _detail(vivian, iid))["spec_revision"] is None
+    assert (await vivian.post(f"/api/interviews/{iid}/spec/revision/apply", json={})).status_code == 400

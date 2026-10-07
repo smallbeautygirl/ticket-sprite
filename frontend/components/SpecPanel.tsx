@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, InterviewDetail, Me, Meta, WORK_ITEM_TYPE, WorkItem } from "@/lib/api";
+import { api, ApiError, InterviewDetail, Me, Meta, WORK_ITEM_TYPE, WorkItem } from "@/lib/api";
 import Markdown from "./Markdown";
 import PersonInput from "./PersonInput";
 import Thinking from "./Thinking";
@@ -113,6 +113,35 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   };
 
   const frozen = d.status === "ticketed" || d.status === "decision_record";
+  const rewriting = d.engine_busy && !!d.spec_markdown;
+
+  function regenerate() {
+    const warn = frozen
+      ? "用最新的規則重新產出 Spec？\n新版會先給你看，確認後才會更新 ADO 票的描述。"
+      : "用最新的規則重新產出 Spec？\n目前的內容（包含你手動改過的地方）會被取代。";
+    if (confirm(warn)) run(() => api.regenerateSpec(d.id));
+  }
+
+  function applyRevision() {
+    run(async () => {
+      try {
+        await api.applySpecRevision(d.id, false);
+      } catch (err) {
+        // 409: the description was edited in ADO after the ticket was opened
+        if (!(err instanceof ApiError && err.status === 409)) throw err;
+        if (!confirm(`${err.message}\n\n仍要更新嗎？`)) return;
+        await api.applySpecRevision(d.id, true);
+      }
+    });
+  }
+
+  const rewritingCard = rewriting && (
+    <Thinking
+      title="小精靈正在重新產出 Spec…"
+      subtitle={frozen ? "完成後會先給你看，確認了才更新 ADO 票" : "完成後會取代目前的 Spec 草稿"}
+      progress={d.engine_progress}
+    />
+  );
 
   if (frozen) {
     return (
@@ -132,8 +161,36 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
             <code style={{ marginLeft: 6 }}>{typeof window !== "undefined" ? window.location.href : ""}</code>
           </div>
         )}
-        <div className="card">
-          <h2 style={{ marginTop: 0 }}>{d.title}</h2>
+        {rewritingCard}
+        {d.status === "ticketed" && d.spec_revision && !rewriting && (
+          <div className="card stack revision">
+            <div className="row">
+              <h2 style={{ margin: 0 }}>新版 Spec</h2>
+              <span className="badge warn">尚未更新到 ADO</span>
+            </div>
+            <Markdown text={d.spec_revision} />
+            {error && <div className="notice danger">{error}</div>}
+            <div className="row">
+              <button className="primary" disabled={busy} onClick={applyRevision}>
+                {busy ? "更新中…" : `更新 ADO #${d.ticket_id} 的描述`}
+              </button>
+              <button disabled={busy} onClick={() => run(() => api.discardSpecRevision(d.id))}>
+                放棄新版
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="card stack">
+          <div className="row">
+            <h2 style={{ margin: 0 }}>{d.title}</h2>
+            <span className="spacer" />
+            {d.status === "ticketed" && d.is_requester && !d.spec_revision && (
+              <button disabled={busy || d.engine_busy} onClick={regenerate}>
+                重新產出 Spec
+              </button>
+            )}
+          </div>
+          {d.spec_revision && <span className="muted small">目前 ADO 上的版本：</span>}
           <Markdown text={d.spec_markdown || ""} />
         </div>
       </div>
@@ -152,12 +209,18 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
 
   return (
     <div className="stack">
+      {rewritingCard}
       <div className="card stack">
         <div className="row">
           <h2 style={{ margin: 0 }}>Spec 預覽</h2>
           <span className="spacer" />
           {d.is_requester && (
-            <button onClick={() => setEditing(!editing)}>{editing ? "預覽" : "編輯"}</button>
+            <>
+              <button disabled={busy || d.engine_busy} onClick={regenerate}>
+                重新產出
+              </button>
+              <button onClick={() => setEditing(!editing)}>{editing ? "預覽" : "編輯"}</button>
+            </>
           )}
         </div>
         <label className="field">

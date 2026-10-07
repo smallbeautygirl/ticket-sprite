@@ -104,6 +104,8 @@ class Interview(Base):
 
     title: Mapped[str | None] = mapped_column(String(255))
     spec_markdown: Mapped[str | None] = mapped_column(Text)
+    # A regenerated Spec for an Interview already ticketed, waiting to replace the ADO description
+    spec_revision: Mapped[str | None] = mapped_column(Text)
     suggested_priority: Mapped[int | None] = mapped_column(Integer)
     suggested_severity: Mapped[str | None] = mapped_column(String(32))
     frozen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

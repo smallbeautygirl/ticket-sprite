@@ -116,6 +116,7 @@ export interface InterviewDetail extends InterviewSummary {
   summary: string | null;
   new_terms: NewTerm[];
   spec_markdown: string | null;
+  spec_revision: string | null;
   suggested_priority: number | null;
   suggested_severity: string | null;
   parent_id: number | null;
@@ -187,6 +188,10 @@ export const api = {
   editQuestion: (qid: string, patch: { title?: string; body?: string; options?: string[] }) =>
     request(`/questions/${qid}`, { method: "PATCH", body: json(patch) }),
   withdraw: (qid: string) => request(`/questions/${qid}/withdraw`, { method: "POST" }),
+  regenerateSpec: (id: string) => request(`/interviews/${id}/spec/regenerate`, { method: "POST" }),
+  applySpecRevision: (id: string, force: boolean) =>
+    request(`/interviews/${id}/spec/revision/apply`, { method: "POST", body: json({ force }) }),
+  discardSpecRevision: (id: string) => request(`/interviews/${id}/spec/revision`, { method: "DELETE" }),
   retry: (id: string) => request(`/interviews/${id}/retry`, { method: "POST" }),
   deleteInterview: (id: string) => request(`/interviews/${id}`, { method: "DELETE" }),
   handoff: (id: string, question_ids: string[], to_email: string, notify: boolean) =>

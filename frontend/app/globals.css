@@ -232,6 +232,7 @@ details.advanced > summary::-webkit-details-marker { display: none; }
 details.advanced > summary::before { content: "▸"; color: var(--muted); width: 10px; }
 details.advanced[open] > summary::before { content: "▾"; }
 details.advanced[open] > summary { margin-bottom: 12px; }
+.revision { border: 2px solid var(--premise-line); }
 .onboarding { border-color: var(--accent); }
 .onboarding ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .onboarding li { display: flex; align-items: center; gap: 10px; font-size: 14px; }

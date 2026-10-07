@@ -21,9 +21,21 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
-from .ado import DEFAULT_WORK_ITEM_TYPE, SEVERITIES, WORK_ITEM_TYPES, AdoClient, AdoCredentialProvider
+from .ado import (
+    DEFAULT_WORK_ITEM_TYPE,
+    SEVERITIES,
+    WORK_ITEM_TYPES,
+    AdoClient,
+    AdoCredentialProvider,
+)
 from .config import Settings
-from .engine.llm import AttachmentInput, EngineError, InterviewContext, InterviewLLM, QAItem
+from .engine.llm import (
+    AttachmentInput,
+    EngineError,
+    InterviewContext,
+    InterviewLLM,
+    QAItem,
+)
 from .engine.progress import EngineProgress
 from .engine.schema import DraftQuestion
 from .engine.templates import DEFAULT_AUDIENCE, QUESTION_BUDGETS, TEMPLATES, depth_for
@@ -638,7 +650,8 @@ async def finish(deps: Deps, session: AsyncSession, interview_id: str, user: str
     deps.spawn(generate_spec(deps, interview.id))
 
 
-async def generate_spec(deps: Deps, interview_id: str) -> None:
+async def generate_spec(deps: Deps, interview_id: str, as_revision: bool = False) -> None:
+    """Write the Spec; for a ticketed Interview (as_revision) keep it aside until the Requester applies it."""
     async with deps.sessionmaker() as session:
         interview = await load_interview(session, interview_id)
         progress = deps.progress[interview.id] = EngineProgress()
@@ -650,6 +663,12 @@ async def generate_spec(deps: Deps, interview_id: str) -> None:
             log.exception("spec generation failed")
             interview.engine_error = "產出 Spec 時發生未預期的錯誤"
         else:
+            if as_revision:
+                interview.spec_revision = result.markdown
+                deps.progress.pop(interview.id, None)
+                interview.engine_busy = False
+                await session.commit()
+                return
             interview.title = result.title[:255]
             interview.spec_markdown = result.markdown
             interview.suggested_priority = result.priority
@@ -658,6 +677,56 @@ async def generate_spec(deps: Deps, interview_id: str) -> None:
         deps.progress.pop(interview.id, None)
         interview.engine_busy = False
         await session.commit()
+
+
+async def regenerate_spec(deps: Deps, session: AsyncSession, interview_id: str, user: str) -> None:
+    """Rewrite the Spec with the current rules: in place while a draft, as a revision once ticketed."""
+    interview = await load_interview(session, interview_id)
+    if interview.requester_email != user:
+        raise FlowError("只有 Requester 可以重新產出 Spec", 403)
+    if interview.status not in (InterviewStatus.SPEC_DRAFT, InterviewStatus.TICKETED):
+        raise FlowError("拷問結束後才能重新產出 Spec")
+    if interview.engine_busy:
+        raise FlowError("小精靈還在處理，請稍候", 409)
+    interview.engine_busy = True
+    interview.engine_error = None
+    await session.commit()
+    deps.spawn(generate_spec(deps, interview.id, as_revision=interview.status == InterviewStatus.TICKETED))
+
+
+async def apply_spec_revision(deps: Deps, session: AsyncSession, interview_id: str, user: str, force: bool) -> None:
+    """Replace the ADO description with the regenerated Spec, unless someone edited it there and force is off."""
+    interview = await load_interview(session, interview_id)
+    if interview.requester_email != user:
+        raise FlowError("只有 Requester 可以更新票的描述", 403)
+    if interview.status != InterviewStatus.TICKETED or not interview.ticket_id or not interview.spec_revision:
+        raise FlowError("沒有待更新的新版 Spec")
+    requester = await session.get(User, user)
+    ado = AdoClient(deps.settings, AdoCredentialProvider(deps.settings).auth_header(requester), deps.ado_transport)
+    if not force:
+        editors = await ado.description_edits(interview.ticket_id)
+        if editors:
+            raise FlowError(
+                f"ADO #{interview.ticket_id} 的描述在開票後被 {'、'.join(editors)} 改過，更新會覆蓋這些修改"
+                "（ADO 的 History 仍可還原）。",
+                409,
+            )
+    await ado.set_description(
+        interview.ticket_id,
+        spec_html(deps.settings, interview, interview.spec_revision),
+        is_bug=interview.ticket_type == "Bug",
+    )
+    interview.spec_markdown = interview.spec_revision
+    interview.spec_revision = None
+    await session.commit()
+
+
+async def discard_spec_revision(session: AsyncSession, interview_id: str, user: str) -> None:
+    interview = await load_interview(session, interview_id)
+    if interview.requester_email != user:
+        raise FlowError("只有 Requester 可以操作", 403)
+    interview.spec_revision = None
+    await session.commit()
 
 
 async def update_spec(session: AsyncSession, interview_id: str, user: str, title: str, markdown_text: str) -> None:
@@ -671,8 +740,9 @@ async def update_spec(session: AsyncSession, interview_id: str, user: str, title
     await session.commit()
 
 
-def spec_html(settings: Settings, interview: Interview) -> str:
-    body = md.markdown(interview.spec_markdown or "", extensions=["tables", "fenced_code", "sane_lists"])
+def spec_html(settings: Settings, interview: Interview, markdown_text: str | None = None) -> str:
+    text = interview.spec_markdown if markdown_text is None else markdown_text
+    body = md.markdown(text or "", extensions=["tables", "fenced_code", "sane_lists"])
     link = interview_link(settings, interview.id)
     return f'{body}<hr/><p>由開票小精靈產生 · <a href="{link}">完整拷問記錄</a></p>'
 

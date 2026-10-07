@@ -32,6 +32,9 @@ class FakeAdo:
     # tag definitions the project already has, and whether this user may create new ones
     existing_tags: set[str] = field(default_factory=lambda: {"ticket-sprite", "role:pm"})
     can_create_tags: bool = True
+    # people who edited a work item's description after it was created, and description updates sent
+    description_editors: list[str] = field(default_factory=list)
+    patched: list[dict] = field(default_factory=list)
 
     def _authorized(self, request: httpx.Request) -> bool:
         import base64
@@ -74,6 +77,18 @@ class FakeAdo:
                     for i in ids
                 ]},
             )
+        if path.endswith("/updates") and request.method == "GET":
+            updates = [{"rev": 1, "fields": {"System.Description": {"newValue": "first"}},
+                        "revisedBy": {"displayName": "Vivian Fan"}}]
+            updates += [{"rev": n + 2, "fields": {"System.Description": {"newValue": "edited"}},
+                         "revisedBy": {"displayName": who}} for n, who in enumerate(self.description_editors)]
+            updates.append({"rev": 99, "fields": {"System.State": {"newValue": "Active"}},
+                            "revisedBy": {"displayName": "Someone Else"}})
+            return httpx.Response(200, json={"value": updates})
+        if "/_apis/wit/workitems/" in path and request.method == "PATCH":
+            item_id = int(path.rsplit("/", 1)[1])
+            self.patched.append({"id": item_id, "ops": json.loads(request.content)})
+            return httpx.Response(200, json={"id": item_id})
         if path.endswith("/_apis/wit/tags") and request.method == "GET":
             return httpx.Response(200, json={"value": [{"name": t} for t in sorted(self.existing_tags)]})
         if "/_apis/wit/workitems/$" in path and request.method == "POST":

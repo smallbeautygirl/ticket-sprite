@@ -21,6 +21,9 @@ API_VERSION = "7.1"
 
 log = logging.getLogger(__name__)
 
+# Where a work item keeps the Spec (Bug forms show Repro Steps)
+DESCRIPTION_FIELDS = {"System.Description", "Microsoft.VSTS.TCM.ReproSteps"}
+
 WORK_ITEM_TYPES = ["Task", "User Story", "Bug"]
 # The default Parent is a User Story, so a feature lands as a Task under it unless the Requester picks otherwise
 DEFAULT_WORK_ITEM_TYPE = {
@@ -273,6 +276,36 @@ class AdoClient:
             (Person(display_name=names[e], email=e, assigned=n) for e, n in counts.items()),
             key=lambda p: (-p.assigned, p.display_name),
         )
+
+    async def description_edits(self, item_id: int) -> list[str]:
+        """Who changed the description (or Repro Steps) after the work item was created."""
+        async with self._client() as c:
+            resp = await c.get(
+                f"{self._org_url}/_apis/wit/workItems/{item_id}/updates",
+                params={"api-version": API_VERSION},
+            )
+        self._raise_for(resp)
+        names = []
+        for update in resp.json().get("value") or []:
+            fields = update.get("fields") or {}
+            if update.get("rev", 1) > 1 and DESCRIPTION_FIELDS & fields.keys():
+                who = (update.get("revisedBy") or {}).get("displayName") or "?"
+                if who not in names:
+                    names.append(who)
+        return names
+
+    async def set_description(self, item_id: int, description_html: str, is_bug: bool) -> None:
+        ops = [{"op": "add", "path": "/fields/System.Description", "value": description_html}]
+        if is_bug:
+            ops.append({"op": "add", "path": "/fields/Microsoft.VSTS.TCM.ReproSteps", "value": description_html})
+        async with self._client() as c:
+            resp = await c.patch(
+                f"{self._org_url}/_apis/wit/workitems/{item_id}",
+                params={"api-version": API_VERSION},
+                json=ops,
+                headers={"Content-Type": "application/json-patch+json"},
+            )
+        self._raise_for(resp)
 
     async def _post_work_item(self, c: httpx.AsyncClient, wi_type: str, ops: list[dict]) -> httpx.Response:
         return await c.post(

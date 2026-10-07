@@ -346,6 +346,7 @@ def _detail_out(i: Interview, viewer: str, settings: Settings, deps: Deps) -> di
         "summary": i.engine_summary,
         "new_terms": i.new_terms or [],
         "spec_markdown": i.spec_markdown,
+        "spec_revision": i.spec_revision,
         "suggested_priority": i.suggested_priority,
         "suggested_severity": i.suggested_severity,
         "parent_id": i.parent_id,
@@ -632,6 +633,56 @@ class TicketIn(BaseModel):
     notify: bool = True
     assignee: str | None = None
     work_item_type: str | None = None
+
+
+@router.post("/interviews/{interview_id}/spec/regenerate")
+async def regenerate_spec(
+    interview_id: str,
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+    deps: Deps = Depends(get_deps),
+):
+    try:
+        await services.regenerate_spec(deps, session, interview_id, email)
+    except FlowError as exc:
+        raise _flow(exc) from exc
+    return {"ok": True}
+
+
+class ApplyRevisionIn(BaseModel):
+    force: bool = False
+
+
+@router.post("/interviews/{interview_id}/spec/revision/apply")
+async def apply_spec_revision(
+    interview_id: str,
+    body: ApplyRevisionIn,
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+    deps: Deps = Depends(get_deps),
+):
+    try:
+        await services.apply_spec_revision(deps, session, interview_id, email, body.force)
+    except FlowError as exc:
+        raise _flow(exc) from exc
+    except AdoCredentialMissing as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AdoError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"ok": True}
+
+
+@router.delete("/interviews/{interview_id}/spec/revision")
+async def discard_spec_revision(
+    interview_id: str,
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+):
+    try:
+        await services.discard_spec_revision(session, interview_id, email)
+    except FlowError as exc:
+        raise _flow(exc) from exc
+    return {"ok": True}
 
 
 @router.post("/interviews/{interview_id}/ticket")

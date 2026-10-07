@@ -73,7 +73,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   useEffect(() => {
     if (!d) return;
     const frozen = d.status === "ticketed" || d.status === "decision_record";
-    if (frozen) return;
+    if (frozen && !d.engine_busy) return; // a ticketed Spec can still be regenerated
     const t = setInterval(load, d.engine_busy ? 2000 : 15000);
     return () => clearInterval(t);
   }, [d, load]);
