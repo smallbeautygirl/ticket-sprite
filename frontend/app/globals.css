@@ -24,6 +24,7 @@
   --glow: #f4c542;
   --sprite-ink: #1c2b22;
   --sprite-halo: none;
+  --night-text: #e4ede6; /* text on the game's night sky, same in both themes */
   --radius: 18px;
   --radius-sm: 12px;
   --shadow: 0 1px 2px rgba(28, 43, 34, 0.05);
@@ -325,7 +326,18 @@ button.example:hover:not(:disabled) { border-style: solid; border-color: var(--a
 .qlist li { display: flex; gap: 8px; }
 .qlist li > :first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.thinking { display: flex; align-items: center; gap: 16px; border-color: var(--border-strong); box-shadow: var(--shadow-lift); }
+.thinking { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; border-color: var(--border-strong); box-shadow: var(--shadow-lift); }
+.wait-extras { flex-basis: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; padding-top: 10px; border-top: 1px solid var(--border); }
+/* The waiting game: a night sky in both themes */
+.game { flex-basis: 100%; display: flex; flex-direction: column; gap: 8px; }
+.game-stage { position: relative; border-radius: var(--radius-sm); overflow: hidden; background: var(--sprite-ink); }
+.game canvas { display: block; width: 100%; height: 200px; cursor: pointer; touch-action: manipulation; }
+.game canvas:focus-visible { outline-offset: -3px; outline-color: var(--glow); }
+.game-overlay {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; padding: 16px; text-align: center; color: var(--night-text);
+}
+.game-overlay b { font-family: var(--font-display); font-weight: 400; font-size: 20px; color: var(--glow); }
 .thinking h3 { font-size: 18px; }
 .reads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .reads code {

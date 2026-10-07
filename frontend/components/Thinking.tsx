@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { EngineProgress } from "@/lib/api";
+import { canNotify } from "@/lib/ready";
+import FireflyGame from "./FireflyGame";
 import Sprite from "./Sprite";
 
 function Elapsed({ since }: { since: string }) {
@@ -18,6 +20,9 @@ function Elapsed({ since }: { since: string }) {
 export default function Thinking({ title, subtitle, progress }: { title: string; subtitle: string; progress: EngineProgress | null }) {
   const looked = progress ? progress.read_count + progress.searches : 0;
   const latest = progress?.reads[progress.reads.length - 1];
+  const [playing, setPlaying] = useState(false);
+  const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
+  useEffect(() => setPermission(canNotify() ? Notification.permission : "unsupported"), []);
   return (
     <div className="card thinking">
       {/* Announce the phase once; the ticking timer and file list would be read out every second */}
@@ -55,6 +60,22 @@ export default function Thinking({ title, subtitle, progress }: { title: string;
           </div>
         )}
       </div>
+      <div className="wait-extras small">
+        <span className="muted">
+          {permission === "granted" ? "好了會通知你，也會在分頁標題打勾，可以先去忙別的。" : "切到別的分頁也沒關係，好了分頁標題會打勾。"}
+        </span>
+        {permission === "default" && (
+          <button className="link small" onClick={() => Notification.requestPermission().then(setPermission)}>
+            好了也發通知給我
+          </button>
+        )}
+        {!playing && (
+          <button className="link small" onClick={() => setPlaying(true)}>
+            等的時候玩一下
+          </button>
+        )}
+      </div>
+      {playing && <FireflyGame onClose={() => setPlaying(false)} />}
     </div>
   );
 }
