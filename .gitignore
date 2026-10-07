@@ -44,3 +44,6 @@ backend/uploads/
 # Skill build output
 skill/ticket-sprite.zip
 skill/ticket-sprite/knowledge/
+
+# Trial runtime data
+data/

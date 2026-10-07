@@ -9,10 +9,20 @@ export default function TopBar() {
   const pathname = usePathname();
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
+  const [down, setDown] = useState<string | null>(null);
 
   useEffect(() => {
     if (pathname === "/login") return;
-    api.me().then(setMe).catch(() => setMe(null));
+    api
+      .me()
+      .then((m) => {
+        setMe(m);
+        setDown(null);
+      })
+      .catch((err) => {
+        setMe(null);
+        if (err.status !== 401) setDown(err.message);
+      });
   }, [pathname]);
 
   if (pathname === "/login") return null;
@@ -25,6 +35,7 @@ export default function TopBar() {
         <Link href="/new">新增 Request</Link>
         <Link href="/settings">設定</Link>
       </nav>
+      {down && <span className="badge danger">{down}</span>}
       {me && (
         <>
           {(!me.ado.connected && !me.ado.dev_fallback) || me.ado.expired ? (

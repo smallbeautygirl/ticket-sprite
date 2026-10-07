@@ -124,7 +124,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
   }
   if (!res.ok) {
-    let msg = res.statusText;
+    let msg = res.status >= 500 ? `伺服器錯誤（${res.status}）` : res.statusText;
     try {
       const data = await res.json();
       msg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);

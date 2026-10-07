@@ -34,12 +34,12 @@ docker compose up -d --build
 拷問改由你本機的 `claude -p` 執行，用的是你自己的 Claude 登入。因為個人帳號不能替別人服務，這個模式**只開放 `OWNER_EMAIL` 登入，也不能轉交題目**。
 
 ```bash
-cd backend
-AUTH_MODE=dev LLM_MODE=claude_code OWNER_EMAIL=you@linkervision.com \
-FERNET_KEY=... SESSION_SECRET=... \
-  .venv/bin/uvicorn ticket_sprite.main:app --port 8000
-cd ../frontend && npm run build && npm start      # http://localhost:3000
+cp .env.example .env    # LLM_MODE=claude_code、OWNER_EMAIL=你的 email，再產生 SESSION_SECRET / FERNET_KEY
+(cd frontend && npm run build)
+scripts/trial.sh start  # 後端 127.0.0.1:8020，前端 0.0.0.0:3000；scripts/trial.sh stop 停止
 ```
+
+資料（SQLite、附件、Knowledge Source clone）和 log 都放在 `data/`。前端在執行時讀取 `BACKEND_URL`，改 port 不用重新 build。
 
 - PM 角色：CLI 在一份只有文件的複本裡執行，看不到程式碼。FAE、RD 角色：直接在產品目錄執行。工作目錄以外的讀取一律被拒絕（`--permission-mode dontAsk`）。
 - 每一輪可能要等幾分鐘，因為 CLI 會實際去查文件和程式碼。
@@ -51,11 +51,11 @@ cd ../frontend && npm run build && npm start      # http://localhost:3000
 cd backend
 python3 -m venv .venv && .venv/bin/pip install -e ".[dev]"
 AUTH_MODE=dev LLM_MODE=fake FERNET_KEY=$(.venv/bin/python -c "from cryptography.fernet import Fernet;print(Fernet.generate_key().decode())") \
-  .venv/bin/uvicorn ticket_sprite.main:app --reload --port 8000
+  .venv/bin/uvicorn ticket_sprite.main:app --reload --port 8020
 .venv/bin/python -m pytest
 
 # frontend
-cd frontend && npm install && npm run dev   # BACKEND_URL 預設為 http://localhost:8000
+cd frontend && npm install && npm run dev   # BACKEND_URL 預設為 http://localhost:8020
 ```
 
 - `AUTH_MODE=dev`：輸入任何 email 都能登入，不會呼叫 Observ。
