@@ -10,6 +10,9 @@ const PLACEHOLDER: Record<Role, string> = {
   rd: "貼上「我目前的理解」和「想問 PM 的問題」。例如：\n我的理解：標注存在 middleware 自己的 processed_event_annotations……\n想請教：1. 需求來源？2. 標完要給誰用？",
 };
 
+// RD mostly clarifies existing work; PM and FAE usually bring a feature
+const DEFAULT_TYPE: Record<Role, RequestType> = { pm: "feature", fae: "feature", rd: "task" };
+
 export default function NewRequest() {
   const router = useRouter();
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -30,10 +33,14 @@ export default function NewRequest() {
       setBudget(m.default_question_budget);
     });
     api.me().then((me) => {
-      setRole(me.default_role);
-      if (me.default_role === "rd") setType("task");
+      pickRole(me.default_role);
     });
   }, []);
+
+  function pickRole(r: Role) {
+    setRole(r);
+    setType(DEFAULT_TYPE[r]);
+  }
 
   const defaultTemplate = meta?.default_template[`${role}:${type}`] ?? "";
   const defaultAudience = meta?.default_audience[role] ?? (role === "rd" ? "pm" : "rd");
@@ -70,7 +77,7 @@ export default function NewRequest() {
           <span className="muted small" style={{ width: 70 }}>Role</span>
           <div className="seg">
             {(meta?.roles ?? ["pm", "fae", "rd"]).map((r) => (
-              <button key={r} className={role === r ? "on" : ""} onClick={() => setRole(r as Role)}>
+              <button key={r} className={role === r ? "on" : ""} onClick={() => pickRole(r as Role)}>
                 {ROLE_LABEL[r as Role]}
               </button>
             ))}
