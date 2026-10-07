@@ -45,7 +45,7 @@ docker compose -f docker-compose.single-user.yml up -d --build   # 開 http://<v
 - 暫時開放給同事試用（還沒有 API key 時）：`.env` 設 `CLAUDE_CODE_SHARED=true`，並把可登入的人列在 `ALLOWED_EMAILS`（含自己）。轉交也會打開。這等於把**個人的 Claude 方案**分給別人用（使用條款與額度都算在擁有者身上），拿到 API key 後請改回 `LLM_MODE=claude`。
 - 不用 Docker 也可以：`(cd frontend && npm run build) && scripts/trial.sh start`（後端 127.0.0.1:8020，前端 0.0.0.0:3000；`scripts/trial.sh stop` 停止），但開機不會自動起來。
 
-- PM 角色：CLI 在一份只有文件的複本裡執行，看不到程式碼。FAE、RD 角色：直接在產品目錄執行。工作目錄以外的讀取一律被拒絕（`--permission-mode dontAsk`）。
+- PM、FAE 角色：CLI 在一份只有文件（含 spec）的複本裡執行，看不到程式碼，產出的 Spec 也會精簡、不寫實作細節。RD 角色：直接在產品目錄執行。工作目錄以外的讀取一律被拒絕（`--permission-mode dontAsk`）。
 - 每一輪可能要等幾分鐘，因為 CLI 會實際去查文件和程式碼。
 
 ## 本機開發

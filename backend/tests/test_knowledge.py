@@ -32,6 +32,6 @@ def test_paths_cannot_escape(settings, path):
 
 
 def test_role_depth_and_defaults():
-    assert depth_for(Role.PM) is Depth.DOCS
-    assert depth_for(Role.FAE) is Depth.CODE and depth_for(Role.RD) is Depth.CODE
+    assert depth_for(Role.PM) is Depth.DOCS and depth_for(Role.FAE) is Depth.DOCS
+    assert depth_for(Role.RD) is Depth.CODE
     assert set(DEFAULT_TEMPLATE.values()) <= set(TEMPLATES)

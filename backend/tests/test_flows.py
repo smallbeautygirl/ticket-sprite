@@ -513,3 +513,13 @@ async def test_parent_choices_are_the_current_iteration_user_stories(app, vivian
     r = await vivian.get("/api/ado/parents")
     assert r.status_code == 200, r.text
     assert [w["id"] for w in r.json()] == [41152, 41155]  # board order kept
+
+
+async def test_pm_and_fae_specs_are_requests_not_designs(app, deps, vivian, llm):
+    for role in ("fae", "rd"):
+        await vivian.post("/api/interviews", data={"role": role, "request_type": "feature", "text": "x",
+                                                   "question_budget": "none"})
+    await deps.drain()
+    fae_ctx, rd_ctx = (ctx for kind, ctx in llm.calls if kind == "spec")
+    assert "not a design document" in spec_prompt(fae_ctx) and fae_ctx.template.id == "grill_product"
+    assert "not a design document" not in spec_prompt(rd_ctx)

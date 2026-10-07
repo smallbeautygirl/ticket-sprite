@@ -72,7 +72,7 @@ TEMPLATES: dict[str, InterviewTemplate] = {
             id="grill_technical",
             label="grill-with-docs（技術面）",
             focus=(
-                "The Requester is an FAE who knows the repo and Observ architecture. Grill like "
+                "The Requester is technical (usually RD) and knows the repo and Observ architecture. Grill like "
                 "grill_product, but also go into the code: which flow, gate, router or job is affected, "
                 "what the current behaviour actually is, and edge cases visible in the code. Verify the "
                 "Requester's claims about current behaviour against the code before relying on them."
@@ -95,8 +95,8 @@ TEMPLATES: dict[str, InterviewTemplate] = {
             focus=(
                 "This is a bug report from someone technical. Collect summary, environment (deployment "
                 "environment, version, camera/task/vendor ids), reproduction steps, expected vs actual, "
-                "logs, impact, and the suspected module. Look in the code to sharpen the questions (e.g. "
-                "\"does it fail before or after the Ensemble Gate?\")."
+                "logs, impact, and the suspected module. When the code is visible, use it to sharpen the "
+                "questions (e.g. \"does it fail before or after the Ensemble Gate?\")."
             ),
             spec_outline=_BUG_OUTLINE,
         ),
@@ -123,7 +123,7 @@ DEFAULT_TEMPLATE: dict[tuple[Role, RequestType], str] = {
     (Role.PM, RequestType.FEATURE): "grill_product",
     (Role.PM, RequestType.BUG): "quick_bug",
     (Role.PM, RequestType.TASK): "clarify",
-    (Role.FAE, RequestType.FEATURE): "grill_technical",
+    (Role.FAE, RequestType.FEATURE): "grill_product",
     (Role.FAE, RequestType.BUG): "quick_bug_technical",
     (Role.FAE, RequestType.TASK): "clarify",
     (Role.RD, RequestType.FEATURE): "clarify",
@@ -140,8 +140,8 @@ def default_template(role: Role, request_type: RequestType) -> str:
 DEFAULT_AUDIENCE: dict[Role, Role] = {Role.PM: Role.RD, Role.FAE: Role.RD, Role.RD: Role.PM}
 
 AUDIENCE_NOTE: dict[Role, str] = {
-    Role.RD: "RD, who will build it: precise acceptance criteria, edge cases and the related modules; "
-    "no product pitch.",
+    Role.RD: "RD, who will build it: a clear problem, scope and testable acceptance criteria; RD works "
+    "out the implementation, so do not write it for them.",
     Role.PM: "a PM, who decides product scope: product language, user impact and the decisions needed; "
     "name modules only when it matters, no code-level detail.",
     Role.FAE: "an FAE, who works with customer sites: site and deployment impact, how to verify on site, "
@@ -150,8 +150,9 @@ AUDIENCE_NOTE: dict[Role, str] = {
 
 
 def depth_for(role: Role) -> Depth:
-    """PM reads documents only; FAE and RD can read code (Q19)."""
-    return Depth.DOCS if role is Role.PM else Depth.CODE
+    """Only RD reads code. PM and FAE get documents (glossary, ADRs, specs): their Spec is a request
+    to RD, and reading code made interviews slow and the Spec an implementation plan."""
+    return Depth.CODE if role is Role.RD else Depth.DOCS
 
 
 @dataclass(frozen=True)

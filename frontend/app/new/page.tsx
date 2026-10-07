@@ -157,7 +157,7 @@ export default function NewRequest() {
           <span className="form-label">
             Role
             <Hint label="Role">
-              你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM 只看文件；FAE、RD 可以看程式碼。不影響權限。
+              你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM、FAE 只看文件和 spec；RD 可以看程式碼。不影響權限。
             </Hint>
           </span>
           <div className="seg">

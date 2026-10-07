@@ -225,6 +225,16 @@ def round_prompt(ctx: InterviewContext) -> str:
     return f"{_context_text(ctx)}\n\n{task}\nRespond with the JSON object only."
 
 
+# PM and FAE hand RD a request, not a design: RD reads the code and decides how
+BRIEF_SPEC_RULE = (
+    "This Spec is the Requester's request to RD, not a design document. Keep it to about one page (roughly "
+    "600 字). Write in product language: no file paths, line numbers, endpoints, SQL, tables, functions or "
+    "config names; RD will work those out. Skip the 相關模組／懷疑的模組 section. At most 5 acceptance "
+    "criteria, each a behaviour a user can see; at most 5 Assumptions and only the Open Questions that need "
+    "a decision. Leave out sections that would be empty. "
+)
+
+
 def _budget_rule(budget: int | None) -> str:
     if budget is None:
         return ""
@@ -252,6 +262,7 @@ def spec_prompt(ctx: InterviewContext) -> str:
         "When someone other than the Requester answered, note it, e.g.「（由 kevin@… 回答）」. "
         "Related modules stay at module or file level and you may check them with the tools. "
         + _budget_rule(ctx.question_budget)
+        + (BRIEF_SPEC_RULE if ctx.role in ("pm", "fae") else "")
         + "Suggest priority by urgency: 1 = must be done now (blocks a release, customer already hurt, contractual "
         "date); 2 = this or next sprint; 3 = normal backlog; 4 = nice to have. For bugs also suggest severity by "
         "impact: 1 - Critical (outage, data loss, no workaround), 2 - High (major feature broken, painful "
