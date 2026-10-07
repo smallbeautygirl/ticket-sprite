@@ -116,8 +116,10 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   const rewriting = d.engine_busy && !!d.spec_markdown;
 
   function regenerate() {
-    const warn = frozen
+    const warn = d.status === "ticketed"
       ? "用最新的規則重新產出 Spec？\n新版會先給你看，確認後才會更新 ADO 票的描述。"
+      : d.status === "decision_record"
+        ? "用最新的規則重新產出 Spec？\n新版會先給你看，確認後才會取代這份 Decision Record。"
       : "用最新的規則重新產出 Spec？\n目前的內容（包含你手動改過的地方）會被取代。";
     if (confirm(warn)) run(() => api.regenerateSpec(d.id));
   }
@@ -138,7 +140,13 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   const rewritingCard = rewriting && (
     <Thinking
       title="小精靈正在重新產出 Spec…"
-      subtitle={frozen ? "完成後會先給你看，確認了才更新 ADO 票" : "完成後會取代目前的 Spec 草稿"}
+      subtitle={
+        d.status === "ticketed"
+          ? "完成後會先給你看，確認了才更新 ADO 票"
+          : frozen
+            ? "完成後會先給你看，確認了才取代這份 Decision Record"
+            : "完成後會取代目前的 Spec 草稿"
+      }
       progress={d.engine_progress}
     />
   );
@@ -162,17 +170,17 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
           </div>
         )}
         {rewritingCard}
-        {d.status === "ticketed" && d.spec_revision && !rewriting && (
+        {d.spec_revision && !rewriting && (
           <div className="card stack revision">
             <div className="row">
               <h2 style={{ margin: 0 }}>新版 Spec</h2>
-              <span className="badge warn">尚未更新到 ADO</span>
+              <span className="badge warn">{d.status === "ticketed" ? "尚未更新到 ADO" : "尚未採用"}</span>
             </div>
             <Markdown text={d.spec_revision} />
             {error && <div className="notice danger">{error}</div>}
             <div className="row">
               <button className="primary" disabled={busy} onClick={applyRevision}>
-                {busy ? "更新中…" : `更新 ADO #${d.ticket_id} 的描述`}
+                {busy ? "更新中…" : d.status === "ticketed" ? `更新 ADO #${d.ticket_id} 的描述` : "採用新版"}
               </button>
               <button disabled={busy} onClick={() => run(() => api.discardSpecRevision(d.id))}>
                 放棄新版
@@ -184,13 +192,15 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
           <div className="row">
             <h2 style={{ margin: 0 }}>{d.title}</h2>
             <span className="spacer" />
-            {d.status === "ticketed" && d.is_requester && !d.spec_revision && (
+            {d.is_requester && !d.spec_revision && (
               <button disabled={busy || d.engine_busy} onClick={regenerate}>
                 重新產出 Spec
               </button>
             )}
           </div>
-          {d.spec_revision && <span className="muted small">目前 ADO 上的版本：</span>}
+          {d.spec_revision && (
+            <span className="muted small">{d.status === "ticketed" ? "目前 ADO 上的版本：" : "目前的版本："}</span>
+          )}
           <Markdown text={d.spec_markdown || ""} />
         </div>
       </div>

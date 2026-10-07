@@ -574,3 +574,21 @@ async def test_spec_revision_can_be_discarded(app, deps, vivian, fake_ado):
     assert (await vivian.delete(f"/api/interviews/{iid}/spec/revision")).status_code == 200
     assert (await _detail(vivian, iid))["spec_revision"] is None
     assert (await vivian.post(f"/api/interviews/{iid}/spec/revision/apply", json={})).status_code == 400
+
+
+async def test_decision_record_spec_can_be_regenerated(app, deps, vivian, fake_ado):
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
+                                                      "question_budget": "none"})).json()["id"]
+    await deps.drain()
+    await vivian.put(f"/api/interviews/{iid}/spec", json={"title": "t", "markdown": "old record"})
+    assert (await vivian.post(f"/api/interviews/{iid}/decision-record", json={"title": "t"})).status_code == 200
+
+    assert (await vivian.post(f"/api/interviews/{iid}/spec/regenerate")).status_code == 200
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["spec_markdown"] == "old record" and d["spec_revision"]  # kept aside for review
+
+    assert (await vivian.post(f"/api/interviews/{iid}/spec/revision/apply", json={})).status_code == 200
+    d = await _detail(vivian, iid)
+    assert d["spec_markdown"] != "old record" and d["spec_revision"] is None
+    assert not fake_ado.patched  # a Decision Record never touches ADO

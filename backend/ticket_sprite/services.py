@@ -680,26 +680,35 @@ async def generate_spec(deps: Deps, interview_id: str, as_revision: bool = False
 
 
 async def regenerate_spec(deps: Deps, session: AsyncSession, interview_id: str, user: str) -> None:
-    """Rewrite the Spec with the current rules: in place while a draft, as a revision once ticketed."""
+    """Rewrite the Spec with the current rules: in place while a draft, as a revision to review once it
+    has been ticketed or saved as a Decision Record."""
     interview = await load_interview(session, interview_id)
     if interview.requester_email != user:
         raise FlowError("只有 Requester 可以重新產出 Spec", 403)
-    if interview.status not in (InterviewStatus.SPEC_DRAFT, InterviewStatus.TICKETED):
+    if interview.status not in (InterviewStatus.SPEC_DRAFT, InterviewStatus.TICKETED, InterviewStatus.DECISION_RECORD):
         raise FlowError("拷問結束後才能重新產出 Spec")
     if interview.engine_busy:
         raise FlowError("小精靈還在處理，請稍候", 409)
     interview.engine_busy = True
     interview.engine_error = None
     await session.commit()
-    deps.spawn(generate_spec(deps, interview.id, as_revision=interview.status == InterviewStatus.TICKETED))
+    deps.spawn(generate_spec(deps, interview.id, as_revision=interview.status != InterviewStatus.SPEC_DRAFT))
 
 
 async def apply_spec_revision(deps: Deps, session: AsyncSession, interview_id: str, user: str, force: bool) -> None:
-    """Replace the ADO description with the regenerated Spec, unless someone edited it there and force is off."""
+    """Adopt the regenerated Spec. For a Ticket it also replaces the ADO description, unless someone edited
+    it there and force is off; a Decision Record lives only here."""
     interview = await load_interview(session, interview_id)
     if interview.requester_email != user:
-        raise FlowError("只有 Requester 可以更新票的描述", 403)
-    if interview.status != InterviewStatus.TICKETED or not interview.ticket_id or not interview.spec_revision:
+        raise FlowError("只有 Requester 可以採用新版 Spec", 403)
+    if not interview.spec_revision:
+        raise FlowError("沒有待更新的新版 Spec")
+    if interview.status == InterviewStatus.DECISION_RECORD:
+        interview.spec_markdown = interview.spec_revision
+        interview.spec_revision = None
+        await session.commit()
+        return
+    if interview.status != InterviewStatus.TICKETED or not interview.ticket_id:
         raise FlowError("沒有待更新的新版 Spec")
     requester = await session.get(User, user)
     ado = AdoClient(deps.settings, AdoCredentialProvider(deps.settings).auth_header(requester), deps.ado_transport)
