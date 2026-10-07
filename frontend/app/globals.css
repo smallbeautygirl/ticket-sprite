@@ -219,7 +219,7 @@ button.example {
 }
 button.example b { font-weight: 500; }
 button.example span { font-size: 13px; color: var(--muted); }
-button.example span.topic { font-size: 14px; color: var(--text-2); margin: 2px 0; }
+button.example span.topic { font-size: 14px; font-weight: 500; color: var(--accent-strong); margin: 2px 0; }
 button.example:hover:not(:disabled) { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
 .budget-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
 .budget-bar span { display: block; height: 100%; background: var(--glow); border-radius: 3px; }
