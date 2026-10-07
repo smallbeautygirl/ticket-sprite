@@ -18,6 +18,7 @@ from .routers.api import router
 from .services import Deps, reminder_loop
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+log = logging.getLogger(__name__)
 
 
 def create_app(
@@ -36,6 +37,13 @@ def create_app(
         settings.upload_dir.mkdir(parents=True, exist_ok=True)
         if settings.single_user and not settings.owner_email:
             raise RuntimeError("LLM_MODE=claude_code requires OWNER_EMAIL (single-user mode)")
+        if settings.llm_mode == "claude_code" and settings.claude_code_shared:
+            if not settings.allowlist:
+                raise RuntimeError("CLAUDE_CODE_SHARED needs ALLOWED_EMAILS: a personal login is never open to everyone")
+            log.warning(
+                "CLAUDE_CODE_SHARED: %s's personal Claude login serves %d allowed users",
+                settings.owner_email, len(settings.allowlist),
+            )
         chosen_llm = llm or {
             "fake": FakeInterviewer,
             "claude_code": lambda: ClaudeCodeInterviewer(settings),

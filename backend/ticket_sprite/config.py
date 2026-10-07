@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     claude_code_model: str = ""  # empty = the CLI's default model
     claude_code_timeout_seconds: int = 900
     owner_email: str = ""  # the only account allowed to log in when single_user
+    # Opt-in: let the owner's personal Claude login serve everyone on ALLOWED_EMAILS. The owner has
+    # accepted that this shares a personal plan (usage terms, their quota) until there is an API key.
+    claude_code_shared: bool = False
 
     # --- Knowledge Source (ADR-0002) ---
     knowledge_root: Path = Path("./knowledge")
@@ -71,8 +74,8 @@ class Settings(BaseSettings):
 
     @property
     def single_user(self) -> bool:
-        """The owner's personal Claude login may only serve the owner."""
-        return self.llm_mode == "claude_code"
+        """The owner's personal Claude login may only serve the owner, unless they opted into sharing."""
+        return self.llm_mode == "claude_code" and not self.claude_code_shared
 
     @property
     def product_root(self) -> Path:

@@ -42,6 +42,7 @@ docker compose -f docker-compose.single-user.yml up -d --build   # 開 http://<v
 - 開機會自動起來：Docker 開機啟動，兩個服務都是 `restart: unless-stopped`。要停用 `docker compose -f docker-compose.single-user.yml down`。
 - 資料（SQLite、附件、Knowledge Source clone）放在 `data/`。Knowledge Source 的來源 repo 若是群組共用（例如 `/opt/lighthouse-saas-api` 屬於 `docker` 群組），把那個群組的 gid 填進 `KNOWLEDGE_SOURCE_GID`。
 - 改了程式碼後重跑上面的 `up -d --build`。
+- 暫時開放給同事試用（還沒有 API key 時）：`.env` 設 `CLAUDE_CODE_SHARED=true`，並把可登入的人列在 `ALLOWED_EMAILS`（含自己）。轉交也會打開。這等於把**個人的 Claude 方案**分給別人用（使用條款與額度都算在擁有者身上），拿到 API key 後請改回 `LLM_MODE=claude`。
 - 不用 Docker 也可以：`(cd frontend && npm run build) && scripts/trial.sh start`（後端 127.0.0.1:8020，前端 0.0.0.0:3000；`scripts/trial.sh stop` 停止），但開機不會自動起來。
 
 - PM 角色：CLI 在一份只有文件的複本裡執行，看不到程式碼。FAE、RD 角色：直接在產品目錄執行。工作目錄以外的讀取一律被拒絕（`--permission-mode dontAsk`）。

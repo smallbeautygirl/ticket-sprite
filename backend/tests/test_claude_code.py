@@ -163,3 +163,28 @@ async def test_stream_reports_reads_and_searches(settings, tmp_path):
     assert result.done
     assert progress.reads == ["docs/adr/0001.md", "a_notes.txt"]
     assert progress.searches == 1
+
+
+async def test_shared_owner_login_serves_the_allowlist_only(settings, llm, notifier):
+    settings.llm_mode = "claude_code"
+    settings.owner_email = "vivian@linkervision.com"
+    settings.claude_code_shared = True
+    settings.allowed_emails = "vivian@linkervision.com,kevin@linkervision.com"
+    app = create_app(settings, llm=llm, notifier=notifier, background_jobs=False)
+    async with app.router.lifespan_context(app):
+        async with client_for(app) as kevin:
+            assert (await kevin.post("/api/auth/login", json={"email": "kevin@linkervision.com"})).status_code == 200
+            assert (await kevin.get("/api/meta")).json()["single_user"] is False  # Handoff is on
+        async with client_for(app) as other:
+            assert (await other.post("/api/auth/login", json={"email": "hank@linkervision.com"})).status_code == 403
+
+
+async def test_shared_owner_login_requires_an_allowlist(settings, llm, notifier):
+    settings.llm_mode = "claude_code"
+    settings.owner_email = "vivian@linkervision.com"
+    settings.claude_code_shared = True
+    settings.allowed_emails = ""
+    app = create_app(settings, llm=llm, notifier=notifier, background_jobs=False)
+    with pytest.raises(RuntimeError, match="ALLOWED_EMAILS"):
+        async with app.router.lifespan_context(app):
+            pass
