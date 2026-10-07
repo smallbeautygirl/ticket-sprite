@@ -7,6 +7,18 @@ import Markdown from "./Markdown";
 import PersonInput from "./PersonInput";
 import Thinking from "./Thinking";
 
+/** Opened inside the click so the browser allows it; pointed at the ticket once ADO has created it. */
+function openPendingTab(): Window | null {
+  const tab = window.open("", "_blank");
+  if (!tab) return null;
+  tab.opener = null; // the ADO page must not reach back into this one
+  tab.document.title = "開票中…";
+  tab.document.body.innerHTML =
+    '<p style="font:16px sans-serif;color:#33463a;padding:64px 24px;text-align:center">' +
+    "開票中…<br>完成後會自動打開 Azure DevOps 上的票。</p>";
+  return tab;
+}
+
 interface Props {
   d: InterviewDetail;
   me: Me | null;
@@ -295,20 +307,27 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
             <button
               className="primary"
               disabled={busy || !adoReady || !title.trim()}
-              onClick={() =>
+              onClick={() => {
+                const tab = openPendingTab();
                 run(async () => {
-                  await saveIfDirty();
-                  await api.createTicket(d.id, {
-                    title,
-                    parent_id: parentId,
-                    priority,
-                    severity: ticketType === "Bug" ? severity : null,
-                    notify,
-                    assignee: assignee.trim() || null,
-                    work_item_type: ticketType,
-                  });
-                })
-              }
+                  try {
+                    await saveIfDirty();
+                    const created = await api.createTicket(d.id, {
+                      title,
+                      parent_id: parentId,
+                      priority,
+                      severity: ticketType === "Bug" ? severity : null,
+                      notify,
+                      assignee: assignee.trim() || null,
+                      work_item_type: ticketType,
+                    });
+                    tab?.location.replace(created.ticket_url);
+                  } catch (err) {
+                    tab?.close();
+                    throw err;
+                  }
+                });
+              }}
             >
               {busy ? "處理中…" : "以我的身份開票"}
             </button>
