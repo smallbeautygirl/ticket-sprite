@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, deleteConfirmText, InterviewDetail, Me, Meta, Question, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
 import QuestionCard from "@/components/QuestionCard";
@@ -8,6 +8,7 @@ import Markdown from "@/components/Markdown";
 import SpecPanel from "@/components/SpecPanel";
 import Sprite from "@/components/Sprite";
 import Thinking from "@/components/Thinking";
+import { announceReady } from "@/lib/ready";
 
 const ANSWERED = new Set(["answered", "confirmed", "corrected"]);
 
@@ -76,7 +77,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     const frozen = d.status === "ticketed" || d.status === "decision_record";
     if (frozen && !d.engine_busy) return; // a ticketed Spec can still be regenerated
     const t = setInterval(() => {
-      if (!document.hidden) load(); // a background tab catches up when it comes back
+      // A background tab keeps polling only while the sprite works, so it can say when it is done
+      if (!document.hidden || d.engine_busy) load();
     }, d.engine_busy ? 2000 : 15000);
     return () => clearInterval(t);
   }, [d, load]);
@@ -88,6 +90,20 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   }, [load]);
 
   const rounds = useMemo(() => (d ? byRound(d.questions) : []), [d]);
+
+  // The sprite just finished: tell someone who went to another tab
+  const before = useRef<InterviewDetail | null>(null);
+  useEffect(() => {
+    const prev = before.current;
+    before.current = d;
+    if (!d || !prev?.engine_busy || d.engine_busy) return;
+    const mine = d.questions.filter((q) => q.status === "pending" && q.can_respond).length;
+    if (d.engine_error) announceReady("小精靈卡住了，回來看看");
+    else if (d.spec_revision && !prev.spec_revision) announceReady("新版 Spec 好了");
+    else if (d.status !== "interviewing" && d.spec_markdown && !prev.spec_markdown) announceReady("Spec 好了");
+    else if (mine > 0) announceReady(`題目來了（${mine}）`);
+    else if (d.engine_done) announceReady("問完了，可以產出 Spec");
+  }, [d]);
 
   if (error && !d) return <div className="notice danger" role="alert">{error}</div>;
   if (!d) return <p className="muted">載入中…</p>;
