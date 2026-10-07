@@ -49,7 +49,7 @@ _Avoid_: Session, 對話, Chat
 _Avoid_: Prompt, Skill, 問卷
 
 **Question Budget**:
-一次 Interview 最多問幾題，由 Requester 開始前選：精簡（5）、標準（12）或深入（不限）。Premise 也算一題；問滿就結束拷問，沒問到的決定在 Spec 中寫成 Assumption 或 Open Question。
+一次 Interview 最多問幾題，由 Requester 開始前選：不問（0，直接寫 Spec）、精簡（5）、標準（12）或深入（不限）。Premise 也算一題；問滿就結束拷問，沒問到的決定在 Spec 中寫成 Assumption 或 Open Question。
 _Avoid_: 題數上限, 深度（Depth 是 Knowledge Source 的存取範圍）
 
 **Answer**:

@@ -225,6 +225,23 @@ def round_prompt(ctx: InterviewContext) -> str:
     return f"{_context_text(ctx)}\n\n{task}\nRespond with the JSON object only."
 
 
+def _budget_rule(budget: int | None) -> str:
+    if budget is None:
+        return ""
+    if budget == 0:
+        return (
+            "The Requester chose to skip the interview, so nothing was asked. Look the Request up in the "
+            "Knowledge Source with the tools and fill in what the documents settle. Every decision you had to "
+            "make yourself goes under Assumptions with a one-line reason (marked 未經確認); anything without a "
+            "safe default goes under Open Questions. Keep the Spec as short as the Request warrants. "
+        )
+    return (
+        "The Requester capped the number of questions, so some decisions were never asked: list each "
+        "important one under Assumptions with your recommended answer (marked 未經確認), or under Open "
+        "Questions when there is no safe default. "
+    )
+
+
 def spec_prompt(ctx: InterviewContext) -> str:
     return (
         f"{_context_text(ctx)}\n\n"
@@ -234,13 +251,7 @@ def spec_prompt(ctx: InterviewContext) -> str:
         "Assumptions, marked 未經確認. Pending (unanswered) questions also go under Open Questions. "
         "When someone other than the Requester answered, note it, e.g.「（由 kevin@… 回答）」. "
         "Related modules stay at module or file level and you may check them with the tools. "
-        + (
-            "The Requester capped the number of questions, so some decisions were never asked: list each "
-            "important one under Assumptions with your recommended answer (marked 未經確認), or under Open "
-            "Questions when there is no safe default. "
-            if ctx.question_budget is not None
-            else ""
-        )
+        + _budget_rule(ctx.question_budget)
         + "Suggest priority by urgency: 1 = must be done now (blocks a release, customer already hurt, contractual "
         "date); 2 = this or next sprint; 3 = normal backlog; 4 = nice to have. For bugs also suggest severity by "
         "impact: 1 - Critical (outage, data loss, no workaround), 2 - High (major feature broken, painful "

@@ -178,11 +178,14 @@ async def create_interview(
         assignee_email=_assignee(assignee),
         engine_busy=True,
     )
+    if budget.limit == 0:
+        interview.status = InterviewStatus.SPEC_DRAFT
+        interview.engine_done = True
     session.add(interview)
     await session.flush()
     await save_uploads(deps, session, interview, files, requester)
     await session.commit()
-    deps.spawn(advance(deps, interview.id))
+    deps.spawn(generate_spec(deps, interview.id) if budget.limit == 0 else advance(deps, interview.id))
     return interview
 
 

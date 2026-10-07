@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
-from ticket_sprite.engine.llm import round_prompt
+from ticket_sprite.engine.llm import round_prompt, spec_prompt
 from ticket_sprite.engine.schema import DraftQuestion, RoundResult
 from ticket_sprite.models import Handoff
 from ticket_sprite.services import send_due_reminders, working_days_between
@@ -442,3 +442,17 @@ async def test_audience_defaults_by_role_and_reaches_the_prompt(app, deps, vivia
     r = await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
                                                    "assignee": "not-an-email"})
     assert r.status_code == 400
+
+
+async def test_no_questions_goes_straight_to_a_spec(app, deps, vivian, llm):
+    r = await vivian.post("/api/interviews", data={
+        "role": "pm", "request_type": "feature", "text": "歷史事件要能用路口、路段、地點關鍵字篩選",
+        "question_budget": "none",
+    })
+    iid = r.json()["id"]
+    await deps.drain()
+
+    d = await _detail(vivian, iid)
+    assert d["status"] == "spec_draft" and d["spec_markdown"] and not d["questions"]
+    assert [kind for kind, _ in llm.calls] == ["spec"]  # no round was asked
+    assert "skip the interview" in spec_prompt(llm.calls[0][1])

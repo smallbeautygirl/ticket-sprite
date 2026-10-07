@@ -131,14 +131,16 @@ export default function NewRequest() {
           <div className="seg">
             {meta?.question_budgets.map((b) => (
               <button key={b.id} className={budget === b.id ? "on" : ""} onClick={() => setBudget(b.id)}>
-                {b.label}（{b.limit ? `最多 ${b.limit} 題` : "不限題數"}）
+                {b.label}（{b.limit === 0 ? "直接寫 Spec" : b.limit ? `最多 ${b.limit} 題` : "不限題數"}）
               </button>
             ))}
           </div>
           <span className="muted small">
-            {budget === "thorough"
-              ? "問到每個分支都清楚為止。"
-              : "只問最關鍵的決定；沒問到的，小精靈會在 Spec 裡寫成 Assumption 或 Open Question。"}
+            {budget === "none"
+              ? "不出題：小精靈查完資料直接寫 Spec，自己做的決定都會列成 Assumption，請檢查後再開票。適合已經很清楚的小需求。"
+              : budget === "thorough"
+                ? "問到每個分支都清楚為止。"
+                : "只問最關鍵的決定；沒問到的，小精靈會在 Spec 裡寫成 Assumption 或 Open Question。"}
           </span>
         </div>
         <label className="field">
@@ -169,7 +171,7 @@ export default function NewRequest() {
         <div className="row">
           <span className="spacer" />
           <button className="primary" disabled={busy || (!text.trim() && files.length === 0)} onClick={submit}>
-            {busy ? "建立中…" : "開始拷問"}
+            {busy ? "建立中…" : budget === "none" ? "產出 Spec" : "開始拷問"}
           </button>
         </div>
       </div>

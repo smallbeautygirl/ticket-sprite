@@ -162,6 +162,7 @@ class QuestionBudget:
 
 
 QUESTION_BUDGETS = [
+    QuestionBudget("none", "不問", 0),  # no Interview: straight to a Spec drafted from the Request
     QuestionBudget("brief", "精簡", 5),
     QuestionBudget("standard", "標準", 12),
     QuestionBudget("thorough", "深入", None),

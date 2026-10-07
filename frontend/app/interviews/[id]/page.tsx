@@ -349,10 +349,14 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
             <h2 style={{ fontSize: 17 }}>Spec 成形中</h2>
             <span className="spacer" />
             <span className="muted small">
-              {d.question_budget ? `已問 ${d.questions_asked}／最多 ${d.question_budget} 題` : `已問 ${d.questions_asked} 題`}
+              {d.question_budget === 0
+                ? "不拷問，直接寫 Spec"
+                : d.question_budget
+                  ? `已問 ${d.questions_asked}／最多 ${d.question_budget} 題`
+                  : `已問 ${d.questions_asked} 題`}
             </span>
           </div>
-          {d.question_budget !== null && (
+          {!!d.question_budget && (
             <div
               className="budget-bar"
               role="progressbar"
