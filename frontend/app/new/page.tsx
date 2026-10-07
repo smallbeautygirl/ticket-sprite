@@ -10,6 +10,58 @@ const PLACEHOLDER: Record<Role, string> = {
   rd: "貼上「我目前的理解」和「想問 PM 的問題」。例如：\n我的理解：標注存在 middleware 自己的 processed_event_annotations……\n想請教：1. 需求來源？2. 標完要給誰用？",
 };
 
+interface Example {
+  title: string;
+  hint: string;
+  role: Role;
+  type: RequestType;
+  audience: Role;
+  template: string;
+  budget: string;
+  text: string;
+}
+
+// Real requests from the trial, one per typical path through the form
+const EXAMPLES: Example[] = [
+  {
+    title: "FAE 回報 bug",
+    hint: "原因和影響都清楚 → 不問，直接寫 Spec",
+    role: "fae",
+    type: "bug",
+    audience: "rd",
+    template: "quick_bug_technical",
+    budget: "none",
+    text:
+      "上次給 v19 時改動了白名單的 event id，被改掉的 event id 在歷史事件查不到。\n" +
+      "影響：客戶查詢改版前的事件時，用新的 event id 找不到資料。",
+  },
+  {
+    title: "RD 想問 PM",
+    hint: "先寫自己的理解和疑問 → 釐清後轉交 PM",
+    role: "rd",
+    type: "task",
+    audience: "pm",
+    template: "clarify",
+    budget: "standard",
+    text:
+      "middleware 歷史頁面打 tag，想先釐清：\n" +
+      "1. 打 tag 的用途是什麼？\n" +
+      "2. 是否需要標示「需要二次驗證的模型」？像 CR3 好像也會請 Oleksi 重新訓練，不確定這樣標註對他們有沒有幫助。\n" +
+      "3. 未來統計準確度時，是看 Observ 的 tag，還是看 middleware 的答案？\n" +
+      "我覺得兩套標註的目的不要重複比較好。",
+  },
+  {
+    title: "PM 提新功能",
+    hint: "一句話的需求 → 標準拷問補齊細節",
+    role: "pm",
+    type: "feature",
+    audience: "rd",
+    template: "grill_product",
+    budget: "standard",
+    text: "在 middleware web 的準確度頁面，可以匯出檔案（報表）。",
+  },
+];
+
 // RD mostly clarifies existing work; PM and FAE usually bring a feature
 const DEFAULT_TYPE: Record<Role, RequestType> = { pm: "feature", fae: "feature", rd: "task" };
 
@@ -42,6 +94,16 @@ export default function NewRequest() {
     setType(DEFAULT_TYPE[r]);
   }
 
+  function applyExample(e: Example) {
+    if (text.trim() && text !== e.text && !confirm("要用範例取代目前填的需求內容嗎？")) return;
+    setRole(e.role);
+    setType(e.type);
+    setAudience(e.audience);
+    setTemplate(e.template);
+    setBudget(e.budget);
+    setText(e.text);
+  }
+
   const defaultTemplate = meta?.default_template[`${role}:${type}`] ?? "";
   const defaultAudience = meta?.default_audience[role] ?? (role === "rd" ? "pm" : "rd");
   useEffect(() => setAudience(defaultAudience), [defaultAudience]);
@@ -72,6 +134,17 @@ export default function NewRequest() {
   return (
     <div className="stack">
       <h1>新增需求</h1>
+      <section className="stack" style={{ gap: 8 }} aria-label="範例">
+        <span className="muted small">不知道怎麼填？點一個範例，會幫你把表單填好，再改成自己的內容：</span>
+        <div className="examples">
+          {EXAMPLES.map((e) => (
+            <button key={e.title} className="example" onClick={() => applyExample(e)}>
+              <b>{e.title}</b>
+              <span>{e.hint}</span>
+            </button>
+          ))}
+        </div>
+      </section>
       <div className="card stack">
         <div className="row">
           <span className="muted small" style={{ width: 70 }}>Role</span>

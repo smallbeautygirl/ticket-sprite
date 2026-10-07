@@ -212,6 +212,14 @@ button.icon.danger:hover:not(:disabled) { color: var(--danger); background: var(
 .stepper li.done { color: var(--text-2); }
 .stepper li.now { color: var(--text); font-weight: 700; }
 
+.examples { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+button.example {
+  flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; white-space: normal;
+  border-radius: var(--radius-sm); padding: 12px 14px; border: 1px dashed var(--border-strong); background: var(--surface);
+}
+button.example b { font-weight: 500; }
+button.example span { font-size: 13px; color: var(--muted); }
+button.example:hover:not(:disabled) { border-style: solid; border-color: var(--accent); background: var(--accent-soft); }
 .budget-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
 .budget-bar span { display: block; height: 100%; background: var(--glow); border-radius: 3px; }
 .tally { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
