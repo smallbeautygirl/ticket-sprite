@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sprite
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sprite}
+      POSTGRES_DB: ticket_sprite
+    volumes:
+      - db-data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://sprite:${POSTGRES_PASSWORD:-sprite}@db:5432/ticket_sprite
+    volumes:
+      - sprite-data:/data
+      # Source for the first clone of the Knowledge Source (read-only)
+      - /opt/lighthouse-saas-api:/opt/lighthouse-saas-api:ro
+    depends_on:
+      - db
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        BACKEND_URL: http://backend:8000
+    restart: unless-stopped
+    ports:
+      - "${SPRITE_PORT:-3000}:3000"
+    depends_on:
+      - backend
+
+volumes:
+  db-data:
+  sprite-data:

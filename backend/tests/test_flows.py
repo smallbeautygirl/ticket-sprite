@@ -1,0 +1,277 @@
+from __future__ import annotations
+
+from datetime import datetime, timedelta, timezone
+
+import httpx
+
+from ticket_sprite.models import Handoff
+from ticket_sprite.services import send_due_reminders, working_days_between
+
+from .conftest import client_for
+
+
+async def _detail(c, iid):
+    r = await c.get(f"/api/interviews/{iid}")
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def _pending(detail, who=None):
+    return [q for q in detail["questions"] if q["status"] == "pending" and (who is None or q["respondent"] == who)]
+
+
+async def test_requires_login(app):
+    async with client_for(app) as c:
+        assert (await c.get("/api/me")).status_code == 401
+
+
+async def test_pm_feature_flow_to_ticket(app, deps, vivian, fake_ado, notifier, llm):
+    r = await vivian.post(
+        "/api/interviews",
+        data={"role": "pm", "request_type": "feature", "text": "客戶想要開放標注給標注員"},
+        files=[("files", ("notes.txt", b"customer said: we need labels", "text/plain"))],
+    )
+    assert r.status_code == 200, r.text
+    iid = r.json()["id"]
+    await deps.drain()
+
+    d = await _detail(vivian, iid)
+    assert d["template"] == "grill_product"
+    assert d["round"] == 1 and len(d["questions"]) == 2
+    q1, q2 = d["questions"]
+    assert q1["recommendation"] == "標注員" and q1["can_skip"]
+    # The PM template only sees documents
+    ctx = llm.calls[0][1]
+    assert ctx.attachments[0].filename == "notes.txt"
+
+    assert (await vivian.post(f"/api/questions/{q1['id']}/respond", json={"action": "answer", "text": "標注員"})).status_code == 200
+    assert (await vivian.post(f"/api/questions/{q2['id']}/respond", json={"action": "skip"})).status_code == 200
+    await deps.drain()
+
+    d = await _detail(vivian, iid)
+    assert d["round"] == 2
+    round2 = _pending(d)
+    assert len(round2) == 2
+    for q in round2:
+        await vivian.post(f"/api/questions/{q['id']}/respond", json={"action": "unknown"})
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["engine_done"] and not _pending(d)
+    skipped = next(q for q in d["questions"] if q["id"] == q2["id"])
+    assert skipped["status"] == "skipped" and skipped["answer_text"] == "能在列表上看到標注"
+
+    assert (await vivian.post(f"/api/interviews/{iid}/finish")).status_code == 200
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["status"] == "spec_draft" and d["spec_markdown"]
+
+    r = await vivian.put(f"/api/interviews/{iid}/spec", json={"title": "開放標注", "markdown": "## 背景\n改過"})
+    assert r.status_code == 200
+
+    # No ADO Credential yet
+    r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "開放標注", "parent_id": 41152})
+    assert r.status_code == 409
+
+    r = await vivian.put("/api/me/ado", json={"pat": "bad-pat-0000000000"})
+    assert r.status_code == 400
+    r = await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890", "expires_on": "2027-10-01"})
+    assert r.status_code == 200 and r.json()["display_name"] == "Vivian Fan"
+
+    r = await vivian.post(
+        f"/api/interviews/{iid}/ticket", json={"title": "開放標注", "parent_id": 41152, "priority": 2}
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["ticket_url"].endswith("/_workitems/edit/50001")
+
+    created = fake_ado.created[0]
+    assert created["type"] == "User Story"
+    fields = {op["path"]: op["value"] for op in created["ops"]}
+    assert fields["/fields/System.Title"] == "開放標注"
+    assert "改過" in fields["/fields/System.Description"]
+    assert f"/interviews/{iid}" in fields["/fields/System.Description"]
+    assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm"
+    relations = [op["value"] for op in created["ops"] if op["path"] == "/relations/-"]
+    assert {"rel": "System.LinkTypes.Hierarchy-Reverse",
+            "url": "https://dev.azure.com/linkerengineer/_apis/wit/workItems/41152"} in relations
+    assert any(r["rel"] == "AttachedFile" for r in relations)
+    assert fake_ado.uploads == ["notes.txt"]
+    assert notifier.sent and "#50001" in notifier.sent[-1]["attachments"][0]["content"]["body"][0]["text"]
+
+    d = await _detail(vivian, iid)
+    assert d["status"] == "ticketed"
+    # Frozen
+    assert (await vivian.put(f"/api/interviews/{iid}/spec", json={"title": "x", "markdown": "y"})).status_code == 400
+
+
+async def test_rd_clarify_handoff_to_pm(app, deps, vivian, kevin, notifier):
+    r = await vivian.post(
+        "/api/interviews",
+        data={"role": "rd", "request_type": "task", "text": "我理解標注存在 middleware…想請教需求來源"},
+    )
+    iid = r.json()["id"]
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["template"] == "clarify"
+    premise, question = d["questions"]
+    assert premise["kind"] == "premise" and premise["ai_note"] and premise["recommendation"] is None
+
+    # RD edits the question, then hands both off to Kevin
+    r = await vivian.patch(f"/api/questions/{question['id']}", json={"body": "這個功能當初是誰提的？"})
+    assert r.status_code == 200
+    r = await vivian.post(
+        f"/api/interviews/{iid}/handoffs",
+        json={"question_ids": [premise["id"], question["id"]], "to_email": "Kevin@linkervision.com"},
+    )
+    assert r.status_code == 200, r.text
+    card = notifier.sent[-1]["attachments"][0]["content"]
+    assert card["msteams"]["entities"][0]["mentioned"]["id"] == "kevin@linkervision.com"
+
+    mine = (await kevin.get("/api/interviews", params={"scope": "for-me"})).json()
+    assert [i["id"] for i in mine] == [iid]
+
+    kd = await _detail(kevin, iid)
+    kq = {q["id"]: q for q in kd["questions"]}
+    assert kq[question["id"]]["body"] == "這個功能當初是誰提的？"
+    assert kq[question["id"]]["can_respond"] and not kq[question["id"]]["can_skip"]
+
+    # Vivian can no longer answer handed-off questions; Kevin cannot skip
+    r = await vivian.post(f"/api/questions/{question['id']}/respond", json={"action": "answer", "text": "x"})
+    assert r.status_code == 403
+    r = await kevin.post(f"/api/questions/{question['id']}/respond", json={"action": "skip"})
+    assert r.status_code == 400
+
+    await kevin.post(f"/api/questions/{premise['id']}/respond", json={"action": "correct", "text": "還有存在 Observ"})
+    await kevin.post(f"/api/questions/{question['id']}/respond", json={"action": "answer", "text": "客戶要求"})
+    assert "已回答完" in notifier.sent[-1]["attachments"][0]["content"]["body"][1]["text"]
+    await deps.drain()
+
+    # Follow-up of Kevin's answer goes straight back to Kevin, without a recommendation
+    kd = await _detail(kevin, iid)
+    followup = next(q for q in _pending(kd) if q["respondent"] == "kevin@linkervision.com")
+    assert followup["recommendation"] is None
+    assert kd["handoffs"][0]["status"] == "open"
+    # The Requester still sees the recommendation
+    vd = await _detail(vivian, iid)
+    assert next(q for q in vd["questions"] if q["id"] == followup["id"])["recommendation"] == "標注員"
+
+    # Requester decides it's enough → Decision Record, no ticket
+    assert (await vivian.post(f"/api/interviews/{iid}/finish")).status_code == 200
+    await deps.drain()
+    r = await vivian.post(f"/api/interviews/{iid}/decision-record", json={"title": "標注定位"})
+    assert r.status_code == 200
+    vd = await _detail(vivian, iid)
+    assert vd["status"] == "decision_record"
+    corrected = next(q for q in vd["questions"] if q["id"] == premise["id"])
+    assert corrected["status"] == "corrected" and corrected["answered_by"] == "kevin@linkervision.com"
+
+
+async def test_recall_handoff(app, deps, vivian, kevin):
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
+    await deps.drain()
+    q = (await _detail(vivian, iid))["questions"][0]
+    hid = (await vivian.post(f"/api/interviews/{iid}/handoffs",
+                             json={"question_ids": [q["id"]], "to_email": "kevin@linkervision.com",
+                                   "notify": False})).json()["id"]
+    assert (await kevin.post(f"/api/handoffs/{hid}/recall")).status_code == 403
+    assert (await vivian.post(f"/api/handoffs/{hid}/recall")).status_code == 200
+    d = await _detail(vivian, iid)
+    back = next(x for x in d["questions"] if x["id"] == q["id"])
+    assert back["respondent"] == "vivian@linkervision.com" and back["can_skip"]
+    assert d["handoffs"][0]["status"] == "recalled"
+
+
+async def test_withdraw_last_pending_advances(app, deps, vivian):
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
+    await deps.drain()
+    q1, q2 = (await _detail(vivian, iid))["questions"]
+    await vivian.post(f"/api/questions/{q1['id']}/respond", json={"action": "answer", "text": "a"})
+    assert (await vivian.post(f"/api/questions/{q2['id']}/withdraw")).status_code == 200
+    await deps.drain()
+    assert (await _detail(vivian, iid))["round"] == 2
+
+
+def test_working_days():
+    fri = datetime(2026, 10, 9, 10, tzinfo=timezone.utc)
+    assert working_days_between(fri, fri + timedelta(days=3)) == 1  # Sat, Sun, Mon
+    assert working_days_between(fri, fri + timedelta(days=4)) == 2
+
+
+async def test_reminders_then_alert_requester(app, deps, vivian, notifier):
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
+    await deps.drain()
+    q = (await _detail(vivian, iid))["questions"][0]
+    await vivian.post(f"/api/interviews/{iid}/handoffs",
+                      json={"question_ids": [q["id"]], "to_email": "kevin@linkervision.com", "notify": False})
+    now = datetime.now(timezone.utc)
+    assert await send_due_reminders(deps, now) == 0
+    t = now
+    for _ in range(2):
+        t = t + timedelta(days=4)
+        assert await send_due_reminders(deps, t) == 1
+        assert "提醒回答" in notifier.sent[-1]["attachments"][0]["content"]["body"][0]["text"]
+    t = t + timedelta(days=4)
+    assert await send_due_reminders(deps, t) == 1
+    assert "仍未回答" in notifier.sent[-1]["attachments"][0]["content"]["body"][0]["text"]
+    assert await send_due_reminders(deps, t + timedelta(days=10)) == 0
+    async with deps.sessionmaker() as s:
+        h = (await s.scalars(__import__("sqlalchemy").select(Handoff))).one()
+        assert h.reminders_sent == 2 and h.requester_alerted
+
+
+async def test_bug_ticket_uses_bug_type_and_severity(app, deps, vivian, fake_ado):
+    iid = (await vivian.post("/api/interviews", data={"role": "fae", "request_type": "bug", "text": "gate 掛了"})).json()["id"]
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["template"] == "quick_bug_technical"
+    await vivian.post(f"/api/interviews/{iid}/finish")
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["suggested_severity"] == "3 - Medium"
+    await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890"})
+    r = await vivian.post(f"/api/interviews/{iid}/ticket",
+                          json={"title": "gate 掛了", "severity": "2 - High", "priority": 1, "notify": False})
+    assert r.status_code == 200, r.text
+    created = fake_ado.created[-1]
+    fields = {op["path"]: op["value"] for op in created["ops"]}
+    assert created["type"] == "Bug"
+    assert fields["/fields/Microsoft.VSTS.Common.Severity"] == "2 - High"
+    assert "/fields/Microsoft.VSTS.TCM.ReproSteps" in fields
+
+
+async def test_work_item_search(app, vivian):
+    assert (await vivian.get("/api/ado/work-items", params={"q": "middleware"})).status_code == 409
+    await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890"})
+    r = await vivian.get("/api/ado/work-items", params={"q": "middleware"})
+    assert r.json() == [{"id": 41152, "title": "Middleware", "work_item_type": "Feature", "state": "Active"}]
+    r = await vivian.get("/api/ado/work-items", params={"q": "#41152"})
+    assert r.json()[0]["id"] == 41152
+
+
+async def test_observ_login(settings, llm, notifier):
+    from ticket_sprite.main import create_app
+
+    settings.auth_mode = "observ"
+
+    def observ(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/apiserver/users/token"):
+            body = __import__("json").loads(request.content)
+            if body["password"] == "right":
+                return httpx.Response(200, json={"access_token": "tok"})
+            return httpx.Response(401, json={"detail": "bad"})
+        if request.url.path.endswith("/auth/users/me"):
+            assert request.headers["authorization"] == "Bearer tok"
+            assert request.headers["x-request-service-id"] == settings.observ_service_id
+            return httpx.Response(200, json={"id": 7, "email": "Kevin@LinkerVision.com", "name": "Kevin"})
+        return httpx.Response(404)
+
+    application = create_app(settings, llm=llm, notifier=notifier, background_jobs=False)
+    application.state.observ_transport = httpx.MockTransport(observ)
+    async with application.router.lifespan_context(application):
+        async with client_for(application) as c:
+            r = await c.post("/api/auth/login", json={"email": "kevin@linkervision.com", "password": "wrong"})
+            assert r.status_code == 401
+            r = await c.post("/api/auth/login", json={"email": "kevin@linkervision.com", "password": "right"})
+            assert r.status_code == 200
+            me = (await c.get("/api/me")).json()
+            assert me["email"] == "kevin@linkervision.com" and me["display_name"] == "Kevin"
+            assert me["default_role"] == "pm"

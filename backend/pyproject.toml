@@ -1,0 +1,33 @@
+[project]
+name = "ticket-sprite"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=1.11",
+  "fastapi>=0.115",
+  "uvicorn[standard]",
+  "sqlalchemy[asyncio]>=2",
+  "asyncpg",
+  "aiosqlite",
+  "pydantic-settings",
+  "itsdangerous",
+  "cryptography",
+  "httpx",
+  "markdown",
+  "python-multipart",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["ticket_sprite*"]
