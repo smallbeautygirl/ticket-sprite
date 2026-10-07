@@ -1,0 +1,43 @@
+# Single-user trial (LLM_MODE=claude_code): the interview runs on the owner's own Claude Code
+# login, mounted read-write from the host so token refreshes persist. Data stays in ./data
+# (SQLite, uploads, the Knowledge Source clone), the same folder scripts/trial.sh used.
+#
+#   docker compose -f docker-compose.single-user.yml up -d --build
+#
+# Comes back by itself after a reboot: Docker starts at boot and both services restart unless stopped.
+# Needs SPRITE_UID, SPRITE_GID and CLAUDE_DIR in .env (see .env.example).
+name: ticket-sprite-trial
+
+services:
+  backend:
+    build: ./backend
+    image: ticket-sprite-backend
+    restart: unless-stopped
+    # The owner's uid, so ./data and ~/.claude stay owned by them
+    user: "${SPRITE_UID:?set SPRITE_UID in .env}:${SPRITE_GID:?set SPRITE_GID in .env}"
+    # Group that may read the Knowledge Source's origin repo (shared checkouts are often group-owned)
+    group_add:
+      - "${KNOWLEDGE_SOURCE_GID:-${SPRITE_GID}}"
+    env_file: .env
+    environment:
+      LLM_MODE: claude_code
+      HOME: /home/owner
+      DATABASE_URL: sqlite+aiosqlite:////data/ticket_sprite.db
+      UPLOAD_DIR: /data/uploads
+      KNOWLEDGE_ROOT: /data/knowledge
+    volumes:
+      - ./data:/data
+      - ${CLAUDE_DIR:?set CLAUDE_DIR in .env}:/home/owner/.claude
+      # Source of the Knowledge Source clone (its origin), same path as on the host
+      - /opt/lighthouse-saas-api:/opt/lighthouse-saas-api:ro
+
+  frontend:
+    build: ./frontend
+    image: ticket-sprite-frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:8000
+    ports:
+      - "${SPRITE_PORT:-3000}:3000"
+    depends_on:
+      - backend

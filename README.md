@@ -31,15 +31,18 @@ docker compose up -d --build
 
 ## 單人試用（沒有 API key，用自己的 Claude Code）
 
-拷問改由你本機的 `claude -p` 執行，用的是你自己的 Claude 登入。因為個人帳號不能替別人服務，這個模式**只開放 `OWNER_EMAIL` 登入，也不能轉交題目**。
+拷問改由 `claude -p` 執行，用的是你自己的 Claude 登入。因為個人帳號不能替別人服務，這個模式**只開放 `OWNER_EMAIL` 登入，也不能轉交題目**。
 
 ```bash
-cp .env.example .env    # LLM_MODE=claude_code、OWNER_EMAIL=你的 email，再產生 SESSION_SECRET / FERNET_KEY
-(cd frontend && npm run build)
-scripts/trial.sh start  # 後端 127.0.0.1:8020，前端 0.0.0.0:3000；scripts/trial.sh stop 停止
+cp .env.example .env    # OWNER_EMAIL=你的 email、SPRITE_UID / SPRITE_GID / CLAUDE_DIR，再產生 SESSION_SECRET / FERNET_KEY
+docker compose -f docker-compose.single-user.yml up -d --build   # 開 http://<vm>:3000
 ```
 
-資料（SQLite、附件、Knowledge Source clone）和 log 都放在 `data/`。前端在執行時讀取 `BACKEND_URL`，改 port 不用重新 build。
+- 後端 image 內含 Claude Code CLI（版本由 `backend/Dockerfile` 的 `CLAUDE_CODE_VERSION` 固定），登入則掛進你的 `~/.claude`（`CLAUDE_DIR`），所以要先在主機上用 `claude` 登入過。容器以 `SPRITE_UID` 執行，`data/` 和 `~/.claude` 的檔案擁有者不會變。
+- 開機會自動起來：Docker 開機啟動，兩個服務都是 `restart: unless-stopped`。要停用 `docker compose -f docker-compose.single-user.yml down`。
+- 資料（SQLite、附件、Knowledge Source clone）放在 `data/`。Knowledge Source 的來源 repo 若是群組共用（例如 `/opt/lighthouse-saas-api` 屬於 `docker` 群組），把那個群組的 gid 填進 `KNOWLEDGE_SOURCE_GID`。
+- 改了程式碼後重跑上面的 `up -d --build`。
+- 不用 Docker 也可以：`(cd frontend && npm run build) && scripts/trial.sh start`（後端 127.0.0.1:8020，前端 0.0.0.0:3000；`scripts/trial.sh stop` 停止），但開機不會自動起來。
 
 - PM 角色：CLI 在一份只有文件的複本裡執行，看不到程式碼。FAE、RD 角色：直接在產品目錄執行。工作目錄以外的讀取一律被拒絕（`--permission-mode dontAsk`）。
 - 每一輪可能要等幾分鐘，因為 CLI 會實際去查文件和程式碼。
