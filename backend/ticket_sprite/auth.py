@@ -86,6 +86,7 @@ def read_session(settings: Settings, token: str) -> str | None:
 def current_email(request: Request, settings: Settings = Depends(get_settings)) -> str:
     token = request.cookies.get(SESSION_COOKIE)
     email = read_session(settings, token) if token else None
-    if not email:
+    if not email or not settings.may_log_in(email):
+        # also drops sessions issued before someone was removed from the allowlist
         raise HTTPException(status_code=401, detail="請先登入")
     return email

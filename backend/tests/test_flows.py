@@ -7,7 +7,7 @@ import httpx
 from ticket_sprite.models import Handoff
 from ticket_sprite.services import send_due_reminders, working_days_between
 
-from .conftest import client_for
+from .conftest import client_for, login
 
 
 async def _detail(c, iid):
@@ -275,3 +275,31 @@ async def test_observ_login(settings, llm, notifier):
             me = (await c.get("/api/me")).json()
             assert me["email"] == "kevin@linkervision.com" and me["display_name"] == "Kevin"
             assert me["default_role"] == "pm"
+
+
+async def test_trial_allowlist(settings, llm, notifier):
+    from ticket_sprite.main import create_app
+
+    settings.allowed_emails = "Vivian@linkervision.com, kevin@linkervision.com"
+    application = create_app(settings, llm=llm, notifier=notifier, background_jobs=False)
+    async with application.router.lifespan_context(application):
+        async with client_for(application) as outsider:
+            r = await outsider.post("/api/auth/login", json={"email": "amy@linkervision.com"})
+            assert r.status_code == 403 and "試用名單" in r.json()["detail"]
+        vivian = await login(application, "vivian@linkervision.com")
+        iid = (await vivian.post("/api/interviews",
+                                 data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
+        await application.state.deps.drain()
+        q = (await _detail(vivian, iid))["questions"][0]
+        r = await vivian.post(f"/api/interviews/{iid}/handoffs",
+                              json={"question_ids": [q["id"]], "to_email": "amy@linkervision.com"})
+        assert r.status_code == 400 and "試用名單" in r.json()["detail"]
+        r = await vivian.post(f"/api/interviews/{iid}/handoffs",
+                              json={"question_ids": [q["id"]], "to_email": "kevin@linkervision.com",
+                                    "notify": False})
+        assert r.status_code == 200
+
+        # Removing someone from the allowlist ends their existing session
+        settings.allowed_emails = "kevin@linkervision.com"
+        assert (await vivian.get("/api/me")).status_code == 401
+        await vivian.aclose()

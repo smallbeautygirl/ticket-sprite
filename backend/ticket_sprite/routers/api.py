@@ -50,8 +50,9 @@ async def login(
     session: AsyncSession = Depends(get_session),
 ):
     email = body.email.strip().lower()
-    if settings.single_user and email != settings.owner_email.strip().lower():
-        raise HTTPException(status_code=403, detail="目前是單人試用模式，只開放給擁有者登入")
+    if not settings.may_log_in(email):
+        detail = "目前是單人試用模式，只開放給擁有者登入" if settings.single_user else "目前是試用階段，你不在試用名單中"
+        raise HTTPException(status_code=403, detail=detail)
     if settings.auth_mode == "dev":
         identity = ObservIdentity(observ_id=None, email=email, display_name=email.split("@")[0])
     else:

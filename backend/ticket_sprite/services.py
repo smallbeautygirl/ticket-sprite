@@ -436,6 +436,8 @@ async def create_handoff(
         raise FlowError("請輸入正確的 email")
     if to_email == user:
         raise FlowError("不能轉交給自己")
+    if not deps.settings.may_log_in(to_email):
+        raise FlowError(f"{to_email} 不在試用名單中，對方無法登入回答")
     chosen = [q for q in interview.questions if q.id in set(question_ids)]
     if not chosen:
         raise FlowError("請選擇要轉交的題目")

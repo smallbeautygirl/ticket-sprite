@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     observ_service_id: str = "e39940ea-1fdf-4527-a3b7-c8d6334e5d2e"
     session_secret: str = "change-me"
     session_max_age_seconds: int = 60 * 60 * 24 * 7
+    allowed_emails: str = ""  # comma-separated trial allowlist; empty = anyone who can log in to Observ
 
     # --- ADO ---
     ado_org: str = "linkerengineer"
@@ -57,6 +58,16 @@ class Settings(BaseSettings):
     handoff_reminder_working_days: int = 2
     handoff_max_reminders: int = 2
     reminder_check_interval_seconds: int = 1800
+
+    @property
+    def allowlist(self) -> set[str]:
+        return {e.strip().lower() for e in self.allowed_emails.split(",") if e.strip()}
+
+    def may_log_in(self, email: str) -> bool:
+        email = email.strip().lower()
+        if self.single_user:
+            return email == self.owner_email.strip().lower()
+        return not self.allowlist or email in self.allowlist
 
     @property
     def single_user(self) -> bool:
