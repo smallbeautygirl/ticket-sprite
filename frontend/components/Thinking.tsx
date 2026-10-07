@@ -6,6 +6,8 @@ import { canNotify } from "@/lib/ready";
 import FireflyGame from "./FireflyGame";
 import Sprite from "./Sprite";
 
+const GAME_HIDDEN_KEY = "sprite.game.hidden";
+
 function Elapsed({ since }: { since: string }) {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
@@ -30,7 +32,24 @@ export default function Thinking({
 }) {
   const looked = progress ? progress.read_count + progress.searches : 0;
   const latest = progress?.reads[progress.reads.length - 1];
-  const [playing, setPlaying] = useState(false);
+  // The game shows (paused) by default; someone who folds it away keeps it folded
+  const [showGame, setShowGame] = useState(false);
+  useEffect(() => {
+    try {
+      setShowGame(localStorage.getItem(GAME_HIDDEN_KEY) !== "1");
+    } catch {
+      setShowGame(true);
+    }
+  }, []);
+  function toggleGame(show: boolean) {
+    setShowGame(show);
+    try {
+      if (show) localStorage.removeItem(GAME_HIDDEN_KEY);
+      else localStorage.setItem(GAME_HIDDEN_KEY, "1");
+    } catch {
+      // private window: remembered for this visit only
+    }
+  }
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">("unsupported");
   useEffect(() => setPermission(canNotify() ? Notification.permission : "unsupported"), []);
   return (
@@ -79,8 +98,8 @@ export default function Thinking({
             好了也發通知給我
           </button>
         )}
-        {!playing && (
-          <button className="link small" onClick={() => setPlaying(true)}>
+        {!showGame && (
+          <button className="link small" onClick={() => toggleGame(true)}>
             等的時候玩一下
           </button>
         )}
@@ -90,7 +109,7 @@ export default function Thinking({
           </button>
         )}
       </div>
-      {playing && <FireflyGame onClose={() => setPlaying(false)} />}
+      {showGame && <FireflyGame onClose={() => toggleGame(false)} />}
     </div>
   );
 }
