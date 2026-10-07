@@ -40,3 +40,7 @@ node_modules/
 backend/knowledge/
 backend/uploads/
 *.tsbuildinfo
+
+# Skill build output
+skill/ticket-sprite.zip
+skill/ticket-sprite/knowledge/
