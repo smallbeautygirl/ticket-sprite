@@ -27,6 +27,7 @@ export interface Meta {
   severities: string[];
   auth_mode: "observ" | "dev";
   single_user: boolean;
+  teams_enabled: boolean;
 }
 
 export interface InterviewSummary {

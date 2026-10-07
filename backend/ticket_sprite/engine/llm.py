@@ -217,7 +217,10 @@ def spec_prompt(ctx: InterviewContext) -> str:
         "Assumptions, marked 未經確認. Pending (unanswered) questions also go under Open Questions. "
         "When someone other than the Requester answered, note it, e.g.「（由 kevin@… 回答）」. "
         "Related modules stay at module or file level and you may check them with the tools. "
-        "Suggest priority (1 highest - 4) and, for bugs, severity; otherwise severity null."
+        "Suggest priority by urgency: 1 = must be done now (blocks a release, customer already hurt, contractual "
+        "date); 2 = this or next sprint; 3 = normal backlog; 4 = nice to have. For bugs also suggest severity by "
+        "impact: 1 - Critical (outage, data loss, no workaround), 2 - High (major feature broken, painful "
+        "workaround), 3 - Medium (partial, workaround exists), 4 - Low (cosmetic); otherwise severity 'none'."
         "\nRespond with the JSON object only."
     )
 

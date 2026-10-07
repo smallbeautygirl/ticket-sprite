@@ -13,6 +13,27 @@ interface Props {
   onChanged: () => void;
 }
 
+// Azure DevOps Priority: how soon the team should pick it up (1 = most urgent)
+const PRIORITY_LABEL: Record<number, string> = {
+  1: "1 － 最高",
+  2: "2 － 高",
+  3: "3 － 中",
+  4: "4 － 低",
+};
+const PRIORITY_HINT: Record<number, string> = {
+  1: "必須優先處理：擋住上線、客戶已受影響或有合約時程，應立即排入目前 sprint。",
+  2: "重要：應在本 sprint 或下個 sprint 完成。",
+  3: "一般：排入 backlog，依團隊容量安排。",
+  4: "可有可無：有空再做，延後也沒關係。",
+};
+// Azure DevOps Severity (Bug only): how bad the impact is, independent of urgency
+const SEVERITY_HINT: Record<string, string> = {
+  "1 - Critical": "系統掛掉、資料遺失，或沒有替代方案",
+  "2 - High": "主要功能壞掉，替代方案很麻煩",
+  "3 - Medium": "部分功能異常，有替代方案",
+  "4 - Low": "外觀、文字或小瑕疵",
+};
+
 export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   const [title, setTitle] = useState(d.title || "");
   const [markdown, setMarkdown] = useState(d.spec_markdown || "");
@@ -200,26 +221,33 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
               <select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
                 {[1, 2, 3, 4].map((p) => (
                   <option key={p} value={p}>
-                    {p}
+                    {PRIORITY_LABEL[p]}
                   </option>
                 ))}
               </select>
+              <span className="small muted">{PRIORITY_HINT[priority]}</span>
             </label>
             {d.request_type === "bug" && (
               <label className="field">
                 <span>Severity（AI 建議 {d.suggested_severity ?? "-"}）</span>
                 <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
                   {(meta?.severities ?? []).map((s) => (
-                    <option key={s}>{s}</option>
+                    <option key={s} value={s}>
+                      {s}（{SEVERITY_HINT[s] ?? ""}）
+                    </option>
                   ))}
                 </select>
               </label>
             )}
           </div>
-          <label className="row small">
-            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
-            開票後通知 Teams 頻道
-          </label>
+          {meta?.teams_enabled ? (
+            <label className="row small">
+              <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} />
+              開票後通知 Teams 頻道
+            </label>
+          ) : (
+            <span className="small muted">Teams 通知未設定（需要 TEAMS_WEBHOOK_URL），開票後不會發通知。</span>
+          )}
           {error && <div className="notice danger">{error}</div>}
           <div className="row">
             <button

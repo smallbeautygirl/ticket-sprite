@@ -225,6 +225,7 @@ async def meta(settings: Settings = Depends(get_settings)):
         "severities": SEVERITIES,
         "auth_mode": settings.auth_mode,
         "single_user": settings.single_user,
+        "teams_enabled": bool(settings.teams_webhook_url),
     }
 
 
