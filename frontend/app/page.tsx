@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import Sprite from "@/components/Sprite";
 import { api, deleteConfirmText, InterviewSummary, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
 
@@ -33,6 +34,17 @@ function TrashIcon() {
 }
 
 export default function Home() {
+  return (
+    <Suspense>
+      <Requests />
+    </Suspense>
+  );
+}
+
+function Requests() {
+  const router = useRouter();
+  // 使用說明 in the top bar links here with ?guide=1 to bring the card back
+  const guide = useSearchParams().get("guide") === "1";
   const [scope, setScope] = useState<Scope>("mine");
   const [items, setItems] = useState<InterviewSummary[] | null>(null);
   const [forMeCount, setForMeCount] = useState(0);
@@ -68,6 +80,7 @@ export default function Home() {
   }, [scope]);
 
   function dismiss() {
+    if (guide) router.replace("/");
     setDismissed(true);
     try {
       localStorage.setItem(ONBOARDING_KEY, "1");
@@ -76,7 +89,8 @@ export default function Home() {
     }
   }
 
-  const showOnboarding = !dismissed && adoReady !== null && startedOne !== null && !(adoReady && startedOne);
+  const showOnboarding =
+    guide || (!dismissed && adoReady !== null && startedOne !== null && !(adoReady && startedOne));
 
   async function remove(i: InterviewSummary) {
     if (!confirm(deleteConfirmText(i))) return;
@@ -115,7 +129,7 @@ export default function Home() {
               </span>
             </div>
             <button className="link small" onClick={dismiss}>
-              不再顯示
+              {guide ? "關閉" : "不再顯示"}
             </button>
           </div>
           <ol>

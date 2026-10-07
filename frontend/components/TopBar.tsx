@@ -39,6 +39,7 @@ export default function TopBar() {
         <Link href="/" className={pathname === "/" || pathname.startsWith("/interviews") ? "on" : ""}>需求</Link>
         <Link href="/new" className={pathname === "/new" ? "on" : ""}>新增需求</Link>
         <Link href="/settings" className={pathname === "/settings" ? "on" : ""}>設定</Link>
+        <Link href="/?guide=1">使用說明</Link>
       </nav>
       {down && <span className="badge danger">{down}</span>}
       {me && (
