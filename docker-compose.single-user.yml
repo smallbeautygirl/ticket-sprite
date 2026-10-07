@@ -19,6 +19,9 @@ services:
     group_add:
       - "${KNOWLEDGE_SOURCE_GID:-${SPRITE_GID}}"
     env_file: .env
+    # Containers don't read the host's /etc/hosts: give Observ the same internal address the VM uses
+    extra_hosts:
+      - "${OBSERV_HOST:-lighthouse-production.visionai.linkervision.ai}:${OBSERV_IP:?set OBSERV_IP in .env}"
     environment:
       LLM_MODE: claude_code
       HOME: /home/owner
