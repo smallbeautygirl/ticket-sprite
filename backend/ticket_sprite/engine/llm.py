@@ -64,6 +64,11 @@ class InterviewContext:
     history: list[QAItem] = field(default_factory=list)
     round: int = 0
     summary: str | None = None
+    question_budget: int | None = None
+
+    @property
+    def asked(self) -> int:
+        return sum(1 for q in self.history if q.status != "withdrawn")
 
 
 class InterviewLLM(Protocol):
@@ -205,6 +210,14 @@ def round_prompt(ctx: InterviewContext) -> str:
             "nothing is left. Do not repeat questions already asked. When a question extends an earlier "
             "answer, set followup_of to that question's ref."
         )
+    if ctx.question_budget is not None:
+        left = max(0, ctx.question_budget - ctx.asked)
+        task += (
+            f"\n\nQuestion budget: the Requester chose at most {ctx.question_budget} questions for the whole "
+            f"interview; {ctx.asked} asked so far, so at most {left} more (premises count). Spend them on the "
+            "decisions RD cannot build without, core first; leave lesser branches unasked and do not merge "
+            "several decisions into one question to save budget. If none are left, set done=true."
+        )
     return f"{_context_text(ctx)}\n\n{task}\nRespond with the JSON object only."
 
 
@@ -217,7 +230,14 @@ def spec_prompt(ctx: InterviewContext) -> str:
         "Assumptions, marked 未經確認. Pending (unanswered) questions also go under Open Questions. "
         "When someone other than the Requester answered, note it, e.g.「（由 kevin@… 回答）」. "
         "Related modules stay at module or file level and you may check them with the tools. "
-        "Suggest priority by urgency: 1 = must be done now (blocks a release, customer already hurt, contractual "
+        + (
+            "The Requester capped the number of questions, so some decisions were never asked: list each "
+            "important one under Assumptions with your recommended answer (marked 未經確認), or under Open "
+            "Questions when there is no safe default. "
+            if ctx.question_budget is not None
+            else ""
+        )
+        + "Suggest priority by urgency: 1 = must be done now (blocks a release, customer already hurt, contractual "
         "date); 2 = this or next sprint; 3 = normal backlog; 4 = nice to have. For bugs also suggest severity by "
         "impact: 1 - Critical (outage, data loss, no workaround), 2 - High (major feature broken, painful "
         "workaround), 3 - Medium (partial, workaround exists), 4 - Low (cosmetic); otherwise severity 'none'."

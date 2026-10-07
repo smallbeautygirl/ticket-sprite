@@ -5,6 +5,8 @@ from datetime import datetime, timedelta, timezone
 
 import httpx
 
+from ticket_sprite.engine.llm import round_prompt
+from ticket_sprite.engine.schema import DraftQuestion, RoundResult
 from ticket_sprite.models import Handoff
 from ticket_sprite.services import send_due_reminders, working_days_between
 
@@ -333,3 +335,50 @@ async def test_engine_progress_is_shown_while_the_round_runs(app, deps, vivian, 
     d = await _detail(vivian, iid)
     assert not d["engine_busy"] and d["engine_progress"] is None
     assert not deps.progress
+
+
+async def test_question_budget_caps_the_interview(app, deps, vivian, llm):
+    """精簡 = 5 questions: a round that overshoots keeps premises and core questions, then the interview ends."""
+    contexts = []
+
+    async def wide_round(ctx, knowledge, progress=None):
+        contexts.append(ctx)
+        return RoundResult(
+            done=False,
+            summary="s",
+            questions=[
+                DraftQuestion(kind="question", title=f"r{ctx.round + 1} 次要", body="b"),
+                DraftQuestion(kind="question", title=f"r{ctx.round + 1} 核心", body="b", core=True),
+                DraftQuestion(kind="premise", title=f"r{ctx.round + 1} 前提", body="b"),
+                DraftQuestion(kind="question", title=f"r{ctx.round + 1} 次要二", body="b"),
+            ],
+            new_terms=[],
+        )
+
+    llm.next_round = wide_round
+    r = await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
+                                                   "question_budget": "brief"})
+    iid = r.json()["id"]
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["question_budget"] == 5 and d["questions_asked"] == 4
+    for q in _pending(d):
+        await vivian.post(f"/api/questions/{q['id']}/respond", json={"action": "unknown"})
+    await deps.drain()
+
+    d = await _detail(vivian, iid)
+    round2 = [q["title"] for q in d["questions"] if q["round"] == 2]
+    assert round2 == ["r2 核心"]  # one left: premises and core questions outrank the rest, in the AI's order
+    assert contexts[1].question_budget == 5 and "at most 1 more" in round_prompt(contexts[1])
+    await vivian.post(f"/api/questions/{_pending(d)[0]['id']}/respond", json={"action": "confirm"})
+    await deps.drain()
+
+    d = await _detail(vivian, iid)
+    assert d["engine_done"] and d["questions_asked"] == 5
+    assert len(contexts) == 2  # budget spent: no third call
+
+
+async def test_unknown_question_budget_is_rejected(vivian):
+    r = await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
+                                                   "question_budget": "huge"})
+    assert r.status_code == 400

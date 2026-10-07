@@ -16,7 +16,7 @@ from ..ado import SEVERITIES, AdoClient, AdoCredentialMissing, AdoCredentialProv
 from ..auth import SESSION_COOKIE, LoginFailed, ObservAuthClient, ObservIdentity, current_email, issue_session
 from ..config import Settings, get_settings
 from ..db import get_session
-from ..engine.templates import DEFAULT_TEMPLATE, TEMPLATES
+from ..engine.templates import DEFAULT_QUESTION_BUDGET, DEFAULT_TEMPLATE, QUESTION_BUDGETS, TEMPLATES
 from ..models import Attachment, Interview, Question, QuestionStatus, RequestType, Role, User
 from ..services import Deps, FlowError
 
@@ -221,6 +221,8 @@ async def meta(settings: Settings = Depends(get_settings)):
         "request_types": [t.value for t in RequestType],
         "templates": [{"id": t.id, "label": t.label} for t in TEMPLATES.values()],
         "default_template": {f"{r.value}:{t.value}": v for (r, t), v in DEFAULT_TEMPLATE.items()},
+        "question_budgets": [{"id": b.id, "label": b.label, "limit": b.limit} for b in QUESTION_BUDGETS],
+        "default_question_budget": DEFAULT_QUESTION_BUDGET,
         "default_parent_id": settings.ado_default_parent_id,
         "severities": SEVERITIES,
         "auth_mode": settings.auth_mode,
@@ -283,6 +285,8 @@ def _detail_out(i: Interview, viewer: str, settings: Settings, deps: Deps) -> di
         "template_label": TEMPLATES[i.template].label if i.template in TEMPLATES else i.template,
         "request_text": i.request_text,
         "round": i.round,
+        "question_budget": i.question_budget,
+        "questions_asked": sum(1 for q in i.questions if q.status != QuestionStatus.WITHDRAWN),
         "engine_busy": i.engine_busy,
         "engine_done": i.engine_done,
         "engine_error": i.engine_error,
@@ -342,6 +346,7 @@ async def create_interview(
     request_type: RequestType = Form(...),
     text: str = Form(""),
     template: str | None = Form(None),
+    question_budget: str = Form(DEFAULT_QUESTION_BUDGET),
     files: list[UploadFile] = File(default_factory=list),
     email: str = Depends(current_email),
     session: AsyncSession = Depends(get_session),
@@ -357,6 +362,7 @@ async def create_interview(
             template=template or DEFAULT_TEMPLATE[(role, request_type)],
             text=text,
             files=files,
+            question_budget=question_budget,
         )
     except FlowError as exc:
         raise _flow(exc) from exc

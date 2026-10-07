@@ -24,7 +24,8 @@ from .ado import SEVERITIES, AdoClient, AdoCredentialProvider
 from .config import Settings
 from .engine.llm import AttachmentInput, EngineError, InterviewContext, InterviewLLM, QAItem
 from .engine.progress import EngineProgress
-from .engine.templates import TEMPLATES, depth_for
+from .engine.schema import DraftQuestion
+from .engine.templates import QUESTION_BUDGETS, TEMPLATES, depth_for
 from .knowledge import KnowledgeSource
 from .models import (
     Attachment,
@@ -154,9 +155,13 @@ async def create_interview(
     template: str,
     text: str,
     files: list[UploadFile],
+    question_budget: str,
 ) -> Interview:
     if template not in TEMPLATES:
         raise FlowError(f"未知的 Interview Template: {template}")
+    budget = next((b for b in QUESTION_BUDGETS if b.id == question_budget), None)
+    if budget is None:
+        raise FlowError(f"未知的題數選項: {question_budget}")
     if not text.strip() and not files:
         raise FlowError("請輸入需求內容或附件")
     interview = Interview(
@@ -165,6 +170,7 @@ async def create_interview(
         request_type=request_type,
         template=template,
         request_text=text.strip(),
+        question_budget=budget.limit,
         engine_busy=True,
     )
     session.add(interview)
@@ -208,6 +214,7 @@ def build_context(interview: Interview) -> InterviewContext:
         ],
         round=interview.round,
         summary=interview.engine_summary,
+        question_budget=interview.question_budget,
     )
 
 
@@ -220,11 +227,32 @@ def _has_pending(interview: Interview) -> bool:
     return any(q.status == QuestionStatus.PENDING for q in interview.questions)
 
 
+def budget_left(interview: Interview) -> int | None:
+    if interview.question_budget is None:
+        return None
+    asked = sum(1 for q in interview.questions if q.status != QuestionStatus.WITHDRAWN)
+    return max(0, interview.question_budget - asked)
+
+
+def _within_budget(drafts: list[DraftQuestion], left: int | None) -> list[DraftQuestion]:
+    """Backstop for a round that overshoots the Question Budget: keep Premises and core questions first."""
+    if left is None or len(drafts) <= left:
+        return drafts
+    ranked = sorted(range(len(drafts)), key=lambda i: (drafts[i].kind != "premise" and not drafts[i].core, i))
+    keep = set(ranked[:left])
+    return [d for i, d in enumerate(drafts) if i in keep]
+
+
 async def advance(deps: Deps, interview_id: str) -> None:
     """Ask the next round if the current one is fully resolved."""
     async with deps.sessionmaker() as session:
         interview = await load_interview(session, interview_id)
         if interview.status != InterviewStatus.INTERVIEWING or interview.engine_done or _has_pending(interview):
+            interview.engine_busy = False
+            await session.commit()
+            return
+        if budget_left(interview) == 0:
+            interview.engine_done = True
             interview.engine_busy = False
             await session.commit()
             return
@@ -252,7 +280,8 @@ async def advance(deps: Deps, interview_id: str) -> None:
         by_ref = {question_ref(q): q for q in interview.questions}
         next_round = interview.round + 1
         followups_to: dict[str, Handoff] = {}
-        for seq, draft in enumerate(result.questions, 1):
+        drafts = _within_budget(result.questions, budget_left(interview))
+        for seq, draft in enumerate(drafts, 1):
             parent = by_ref.get(draft.followup_of or "")
             respondent = interview.requester_email
             handoff_id = None
@@ -285,7 +314,7 @@ async def advance(deps: Deps, interview_id: str) -> None:
         interview.round = next_round
         interview.engine_summary = result.summary
         interview.new_terms = _merge_terms(list(interview.new_terms or []), result.new_terms)
-        interview.engine_done = result.done and not result.questions
+        interview.engine_done = (result.done and not drafts) or budget_left(interview) == 0
         interview.engine_busy = False
         await session.commit()
 

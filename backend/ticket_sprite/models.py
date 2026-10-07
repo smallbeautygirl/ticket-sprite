@@ -90,6 +90,8 @@ class Interview(Base):
     status: Mapped[str] = mapped_column(String(32), default=InterviewStatus.INTERVIEWING)
     request_text: Mapped[str] = mapped_column(Text)
     round: Mapped[int] = mapped_column(Integer, default=0)
+    # Question Budget: most questions this Interview may ask; None = no limit
+    question_budget: Mapped[int | None] = mapped_column(Integer)
     engine_done: Mapped[bool] = mapped_column(Boolean, default=False)
     engine_busy: Mapped[bool] = mapped_column(Boolean, default=False)
     engine_summary: Mapped[str | None] = mapped_column(Text)

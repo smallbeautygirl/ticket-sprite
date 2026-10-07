@@ -23,6 +23,8 @@ export interface Meta {
   request_types: RequestType[];
   templates: { id: string; label: string }[];
   default_template: Record<string, string>;
+  question_budgets: { id: string; label: string; limit: number | null }[];
+  default_question_budget: string;
   default_parent_id: number;
   severities: string[];
   auth_mode: "observ" | "dev";
@@ -93,6 +95,8 @@ export interface InterviewDetail extends InterviewSummary {
   template_label: string;
   request_text: string;
   round: number;
+  question_budget: number | null;
+  questions_asked: number;
   engine_busy: boolean;
   engine_done: boolean;
   engine_error: string | null;

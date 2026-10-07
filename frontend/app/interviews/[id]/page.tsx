@@ -226,7 +226,9 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       {interviewing && d.engine_done && !d.engine_busy && (
         <div className="notice ok with-sprite">
           <Sprite pose="ticket" size={56} />
-          小精靈認為已經問完了，可以產出 Spec。
+          {d.question_budget !== null && d.questions_asked >= d.question_budget
+            ? `已經問滿 ${d.question_budget} 題，可以產出 Spec 了。沒問到的部分會寫成 Assumption 或 Open Question。`
+            : "小精靈認為已經問完了，可以產出 Spec。"}
         </div>
       )}
 
@@ -318,7 +320,25 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
       <aside className="interview-aside stack">
         <section className="card stack">
-          <h2 style={{ fontSize: 17 }}>Spec 成形中</h2>
+          <div className="row" style={{ alignItems: "baseline" }}>
+            <h2 style={{ fontSize: 17 }}>Spec 成形中</h2>
+            <span className="spacer" />
+            <span className="muted small">
+              {d.question_budget ? `已問 ${d.questions_asked}／最多 ${d.question_budget} 題` : `已問 ${d.questions_asked} 題`}
+            </span>
+          </div>
+          {d.question_budget !== null && (
+            <div
+              className="budget-bar"
+              role="progressbar"
+              aria-label="題數"
+              aria-valuemin={0}
+              aria-valuemax={d.question_budget}
+              aria-valuenow={d.questions_asked}
+            >
+              <span style={{ width: `${Math.min(100, (d.questions_asked / d.question_budget) * 100)}%` }} />
+            </div>
+          )}
           <div className="tally">
             <div className={tally.answered ? "ok" : ""}>
               <b>{tally.answered}</b>

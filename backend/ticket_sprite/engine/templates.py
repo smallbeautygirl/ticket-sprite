@@ -139,3 +139,18 @@ def default_template(role: Role, request_type: RequestType) -> str:
 def depth_for(role: Role) -> Depth:
     """PM reads documents only; FAE and RD can read code (Q19)."""
     return Depth.DOCS if role is Role.PM else Depth.CODE
+
+
+@dataclass(frozen=True)
+class QuestionBudget:
+    id: str
+    label: str
+    limit: int | None  # None = ask until every branch is visited
+
+
+QUESTION_BUDGETS = [
+    QuestionBudget("brief", "精簡", 5),
+    QuestionBudget("standard", "標準", 12),
+    QuestionBudget("thorough", "深入", None),
+]
+DEFAULT_QUESTION_BUDGET = "standard"

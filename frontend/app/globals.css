@@ -202,6 +202,8 @@ label.field > :not(span) { color: var(--text); }
 .stepper li.done { color: var(--text-2); }
 .stepper li.now { color: var(--text); font-weight: 700; }
 
+.budget-bar { height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.budget-bar span { display: block; height: 100%; background: var(--glow); border-radius: 3px; }
 .tally { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .tally > div { display: flex; flex-direction: column; padding: 10px; border-radius: var(--radius-sm); background: var(--surface-2); }
 .tally b { font-size: 22px; line-height: 1.2; }

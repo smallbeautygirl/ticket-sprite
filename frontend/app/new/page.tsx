@@ -16,13 +16,17 @@ export default function NewRequest() {
   const [role, setRole] = useState<Role>("pm");
   const [type, setType] = useState<RequestType>("feature");
   const [template, setTemplate] = useState<string>("");
+  const [budget, setBudget] = useState<string>("");
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.meta().then(setMeta);
+    api.meta().then((m) => {
+      setMeta(m);
+      setBudget(m.default_question_budget);
+    });
     api.me().then((me) => {
       setRole(me.default_role);
       if (me.default_role === "rd") setType("task");
@@ -40,6 +44,7 @@ export default function NewRequest() {
     form.set("request_type", type);
     form.set("text", text);
     if (template) form.set("template", template);
+    if (budget) form.set("question_budget", budget);
     files.forEach((f) => form.append("files", f));
     try {
       const { id } = await api.createInterview(form);
@@ -85,6 +90,21 @@ export default function NewRequest() {
               </option>
             ))}
           </select>
+        </div>
+        <div className="row">
+          <span className="muted small" style={{ width: 70 }}>要問多細</span>
+          <div className="seg">
+            {meta?.question_budgets.map((b) => (
+              <button key={b.id} className={budget === b.id ? "on" : ""} onClick={() => setBudget(b.id)}>
+                {b.label}（{b.limit ? `最多 ${b.limit} 題` : "不限題數"}）
+              </button>
+            ))}
+          </div>
+          <span className="muted small">
+            {budget === "thorough"
+              ? "問到每個分支都清楚為止。"
+              : "只問最關鍵的決定；沒問到的，小精靈會在 Spec 裡寫成 Assumption 或 Open Question。"}
+          </span>
         </div>
         <label className="field">
           <span>需求內容</span>
