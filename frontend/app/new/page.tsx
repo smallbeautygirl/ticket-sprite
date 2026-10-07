@@ -12,6 +12,13 @@ const PLACEHOLDER: Record<Role, string> = {
   rd: "貼上「我目前的理解」和「想問 PM 的問題」。例如：\n我的理解：標注存在 middleware 自己的 processed_event_annotations……\n想請教：1. 需求來源？2. 標完要給誰用？",
 };
 
+// Other Products: no console of their own to point at, so the hints stay general
+const PLACEHOLDER_GENERAL: Record<Role, string> = {
+  pm: "例如：希望在設定頁可以……（可直接貼上客戶 email 或會議記錄；畫面上看到的，附截圖並說明在哪一頁）",
+  fae: "例如：在某個情境下做了什麼、預期是什麼、實際發生什麼……（log 和截圖放附件）",
+  rd: "貼上「我目前的理解」和「想問 PM 的問題」。例如：\n我的理解：……\n想請教：1. 需求來源？2. 做完要給誰用？",
+};
+
 interface Example {
   title: string;
   topic: string;
@@ -24,7 +31,7 @@ interface Example {
   text: string;
 }
 
-// Real requests from the trial, one per typical path through the form
+// Real Middleware requests from the trial, one per typical path through the form
 const EXAMPLES: Example[] = [
   {
     title: "Solution Engineer 回報 bug",
@@ -76,6 +83,7 @@ const DEFAULT_TYPE: Record<Role, RequestType> = { pm: "feature", fae: "feature",
 export default function NewRequest() {
   const router = useRouter();
   const [meta, setMeta] = useState<Meta | null>(null);
+  const [product, setProduct] = useState<string>(""); // "" until meta says which are offered
   const [role, setRole] = useState<Role>("pm");
   const [type, setType] = useState<RequestType>("feature");
   const [template, setTemplate] = useState<string>("");
@@ -127,6 +135,7 @@ export default function NewRequest() {
     setBusy(true);
     setError(null);
     const form = new FormData();
+    if (product) form.set("product", product);
     form.set("role", role);
     form.set("request_type", type);
     form.set("text", text);
@@ -145,21 +154,47 @@ export default function NewRequest() {
     }
   }
 
+  const offered = meta?.products ?? [{ id: "middleware", label: "Middleware" }];
+  const productId = product || offered[0].id;
+
   return (
     <div className="stack">
       <h1>新增需求</h1>
-      <section className="stack" style={{ gap: 8 }} aria-label="範例">
-        <span className="muted small">不知道怎麼填？點一個範例，會幫你把表單填好，再改成自己的內容：</span>
-        <div className="examples">
-          {EXAMPLES.map((e) => (
-            <button key={e.title} className="example" onClick={() => applyExample(e)}>
-              <b>{e.title}</b>
-              <span className="topic">「{e.topic}」</span>
-              <span>{e.hint}</span>
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* First: the Product decides the examples and the hints below */}
+      <div className="row">
+        <span className="form-label">
+          Product
+          <Hint label="Product">
+            這個需求是哪個產品的。小精靈會對照該產品的文件和程式碼來問、來寫 Spec，開票時預設掛在它的 Parent 底下。
+          </Hint>
+        </span>
+        {offered.length > 1 ? (
+          <div className="seg" role="group" aria-label="Product">
+            {offered.map((p) => (
+              <button key={p.id} className={productId === p.id ? "on" : ""} aria-pressed={productId === p.id} onClick={() => setProduct(p.id)}>
+                {p.label}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="badge accent">{offered[0]?.label ?? "Middleware"}</span>
+        )}
+        {offered.length <= 1 && <span className="muted small">目前只支援這個產品</span>}
+      </div>
+      {productId === "middleware" && (
+        <section className="stack" style={{ gap: 8 }} aria-label="範例">
+          <span className="muted small">不知道怎麼填？點一個範例，會幫你把表單填好，再改成自己的內容：</span>
+          <div className="examples">
+            {EXAMPLES.map((e) => (
+              <button key={e.title} className="example" onClick={() => applyExample(e)}>
+                <b>{e.title}</b>
+                <span className="topic">「{e.topic}」</span>
+                <span>{e.hint}</span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
       <div className="card stack">
         <div className="row">
           <span className="form-label">
@@ -270,7 +305,7 @@ export default function NewRequest() {
           <span>需求內容</span>
           <textarea
             rows={10}
-            placeholder={PLACEHOLDER[role]}
+            placeholder={productId === "middleware" ? PLACEHOLDER[role] : PLACEHOLDER_GENERAL[role]}
             value={text}
             onChange={(e) => setText(e.target.value)}
           />

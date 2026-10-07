@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     knowledge_product_subdir: str = "apps/visionai_middleware"
     knowledge_pull_interval_seconds: int = 3600
 
+    # --- Products (ADR-0004). The knowledge_* settings above are Middleware's ---
+    products_enabled: str = "middleware,taipei_mrt"  # comma-separated, in the order offered
+    taipei_mrt_repo_dir: str = "lighthouse-saas-api-taipei-mrt"
+    taipei_mrt_branch: str = "feat/taipei-mrt-simulation"
+    taipei_mrt_subdir: str = "apps/taipei_MRT_simulation"
+    taipei_mrt_parent_id: int = 41490
+
     # --- attachments ---
     upload_dir: Path = Path("./uploads")
     max_upload_bytes: int = 20 * 1024 * 1024
@@ -90,6 +97,7 @@ class Settings(BaseSettings):
 
     @property
     def product_root(self) -> Path:
+        """Middleware's Knowledge Source root (other Products: `products.Product.root`)."""
         return self.knowledge_root / self.knowledge_repo_dir / self.knowledge_product_subdir
 
 

@@ -189,6 +189,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       <div className="stack" style={{ gap: 6 }}>
         <div className="row">
           <span className="badge accent">{STATUS_LABEL[d.status]}</span>
+          <span className="badge">{d.product_label}</span>
           <span className="badge">{TYPE_LABEL[d.request_type]}</span>
           <span className="badge">{ROLE_LABEL[d.role]}</span>
           <span className="badge">

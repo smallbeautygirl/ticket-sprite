@@ -94,7 +94,7 @@ async def test_pm_feature_flow_to_ticket(app, deps, vivian, fake_ado, notifier, 
     assert fields["/fields/System.Title"] == "開放標注"
     assert "改過" in fields["/fields/System.Description"]
     assert f"/interviews/{iid}" in fields["/fields/System.Description"]
-    assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm; to:rd"
+    assert fields["/fields/System.Tags"] == "ticket-sprite; product:middleware; role:pm; to:rd"
     assert fields["/fields/System.AssignedTo"] == "kevin@linkervision.com"
     relations = [op["value"] for op in created["ops"] if op["path"] == "/relations/-"]
     assert {"rel": "System.LinkTypes.Hierarchy-Reverse",
@@ -555,7 +555,7 @@ async def test_ticket_keeps_only_existing_tags_without_tag_permission(app, deps,
     r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t"})
     assert r.status_code == 200, r.text
     fields = {op["path"]: op["value"] for op in fake_ado.created[-1]["ops"]}
-    assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm"  # to:rd is new, dropped
+    assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm"  # product:middleware and to:rd are new, dropped
 
 
 async def test_parent_choices_are_the_current_iteration_user_stories(app, vivian, fake_ado):

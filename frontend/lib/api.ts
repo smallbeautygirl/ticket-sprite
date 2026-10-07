@@ -19,6 +19,7 @@ export interface Me {
 }
 
 export interface Meta {
+  products: { id: string; label: string }[];
   roles: Role[];
   request_types: RequestType[];
   templates: { id: string; label: string }[];
@@ -37,6 +38,8 @@ export interface Meta {
 
 export interface InterviewSummary {
   id: string;
+  product: string;
+  product_label: string;
   requester: string;
   role: Role;
   request_type: RequestType;

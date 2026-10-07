@@ -12,7 +12,7 @@ PM / FAE / RD 把一個需求丟進來，AI 用 grill-with-docs 的方式一輪�
 frontend (Next.js, :3000) ──/api/*──▶ backend (FastAPI, :8000) ──▶ Postgres
                                          ├─▶ Observ  /apiserver/users/token, /auth/users/me   （登入）
                                          ├─▶ Claude API（claude-opus-5-5，唯讀工具：list_files / grep / read_file）
-                                         ├─▶ Knowledge Source：專用的 main clone（每小時 pull）
+                                         ├─▶ Knowledge Source：每個 Product 一份專用 clone（每小時同步）
                                          ├─▶ Azure DevOps REST（以使用者自己的 PAT 開票）
                                          └─▶ Teams Workflows webhook（通知、轉交、催促）
 ```
@@ -26,6 +26,7 @@ docker compose up -d --build
 ```
 
 - `SPRITE_PORT` 可以改對外的 port。
+- Product：Middleware 與北捷，新增需求時選（`PRODUCTS_ENABLED` 可關掉北捷）。每個 Product 有自己的 Knowledge Source clone，北捷目前追 `feat/taipei-mrt-simulation`（ADR-0004）。
 - Knowledge Source 第一次會從 `/opt/lighthouse-saas-api` clone `main` 分支到 volume。注意：用本機路徑當來源時，只看得到那份工作目錄已經 fetch 過的 `main`。要永遠追 GitHub 上的 `main`，就把 `KNOWLEDGE_REPO_SOURCE` 改成 GitHub URL，並掛一把唯讀的 deploy key。
 - Teams 通知：在頻道建一個 Workflows「收到 webhook 時發文到頻道」，把 URL 填進 `TEAMS_WEBHOOK_URL`。
 

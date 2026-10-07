@@ -17,6 +17,9 @@ from ..ado import DEFAULT_WORK_ITEM_TYPE, SEVERITIES, WORK_ITEM_TYPES, AdoClient
 from ..auth import SESSION_COOKIE, LoginFailed, ObservAuthClient, ObservIdentity, current_email, issue_session
 from ..config import Settings, get_settings
 from ..db import get_session
+from ..products import label as product_label
+from ..products import product as product_of
+from ..products import products
 from ..engine.templates import DEFAULT_AUDIENCE, DEFAULT_QUESTION_BUDGET, DEFAULT_TEMPLATE, QUESTION_BUDGETS, TEMPLATES
 from ..models import Attachment, Interview, Question, QuestionStatus, RequestType, Role, User
 from ..services import Deps, FlowError
@@ -275,6 +278,7 @@ async def meta(settings: Settings = Depends(get_settings)):
         "default_question_budget": DEFAULT_QUESTION_BUDGET,
         "default_audience": {r.value: a.value for r, a in DEFAULT_AUDIENCE.items()},
         "default_parent_id": settings.ado_default_parent_id,
+        "products": [{"id": p.id, "label": p.label} for p in products(settings).values()],
         "severities": SEVERITIES,
         "work_item_types": WORK_ITEM_TYPES,
         "default_work_item_type": {t.value: w for t, w in DEFAULT_WORK_ITEM_TYPE.items()},
@@ -317,6 +321,8 @@ def _question_out(q: Question, interview: Interview, viewer: str) -> dict:
 def _summary_out(i: Interview) -> dict:
     return {
         "id": i.id,
+        "product": i.product,
+        "product_label": product_label(i.product),
         "requester": i.requester_email,
         "role": i.role,
         "request_type": i.request_type,
@@ -334,7 +340,6 @@ def _detail_out(i: Interview, viewer: str, settings: Settings, deps: Deps) -> di
     progress = deps.progress.get(i.id)
     return {
         **_summary_out(i),
-        "product": i.product,
         "template": i.template,
         "template_label": TEMPLATES[i.template].label if i.template in TEMPLATES else i.template,
         "request_text": i.request_text,
@@ -354,7 +359,7 @@ def _detail_out(i: Interview, viewer: str, settings: Settings, deps: Deps) -> di
         "suggested_priority": i.suggested_priority,
         "suggested_severity": i.suggested_severity,
         "parent_id": i.parent_id,
-        "default_parent_id": settings.ado_default_parent_id,
+        "default_parent_id": product_of(settings, i.product).default_parent_id,
         "is_requester": viewer == i.requester_email,
         "unknown_core_count": services.unknown_core_count(i),
         "unknown_warning": services.unknown_core_count(i) > services.UNKNOWN_WARNING_THRESHOLD,
@@ -406,6 +411,7 @@ async def create_interview(
     question_budget: str = Form(DEFAULT_QUESTION_BUDGET),
     audience: Role | None = Form(None),
     assignee: str = Form(""),
+    product: str = Form(""),
     files: list[UploadFile] = File(default_factory=list),
     email: str = Depends(current_email),
     session: AsyncSession = Depends(get_session),
@@ -424,6 +430,7 @@ async def create_interview(
             question_budget=question_budget,
             audience=audience,
             assignee=assignee,
+            product=product,
         )
     except FlowError as exc:
         raise _flow(exc) from exc

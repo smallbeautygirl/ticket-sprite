@@ -72,11 +72,11 @@ Respondent 選擇「跳過 / 讓 AI 決定」時採用的 AI 建議答案；在 
 _Avoid_: Default, 預設答案
 
 **Product**:
-Request 所針對的產品；決定 Knowledge Source 與預設 Parent。目前只有 Middleware。
+Request 所針對的產品；決定 Knowledge Source、給 AI 的產品說明與預設 Parent。目前有 Middleware 與北捷（台北捷運文湖線動態載客模擬器，Knowledge Source 暫時是 `feat/taipei-mrt-simulation` 分支，ADR-0004）。
 _Avoid_: App, Project, 模組
 
 **Knowledge Source**:
-Interview 時用來對照用詞與現況的資料來源（Product 的文件、spec 與 console 畫面；只有 RD 另含其餘程式碼）。Middleware 的 Knowledge Source 為 visionai_middleware 的 main branch。
+Interview 時用來對照用詞與現況的資料來源（Product 的文件、spec 與畫面；只有 RD 另含其餘程式碼）。每個 Product 一份自己的 clone：Middleware 為 visionai_middleware 的 main branch，北捷為 taipei_MRT_simulation 的 feat/taipei-mrt-simulation branch（ADR-0004）。
 _Avoid_: Docs, Context
 
 **New Term**:

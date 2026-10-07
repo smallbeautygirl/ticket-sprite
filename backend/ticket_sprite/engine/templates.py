@@ -33,7 +33,7 @@ _FEATURE_OUTLINE = """\
 
 _BUG_OUTLINE = """\
 ## 摘要
-## 環境（Deployment Environment、版本、相關 camera / task / vendor 等）
+## 環境（Deployment Environment、版本、相關的設定或資料，例如 camera / task / vendor 或情境檔）
 ## 重現步驟
 ## 預期結果
 ## 實際結果
@@ -72,8 +72,8 @@ TEMPLATES: dict[str, InterviewTemplate] = {
             id="grill_technical",
             label="grill-with-docs（技術面）",
             focus=(
-                "The Requester is technical (usually RD) and knows the repo and Observ architecture. Grill like "
-                "grill_product, but also go into the code: which flow, gate, router or job is affected, "
+                "The Requester is technical (usually RD) and knows the repo and the product's architecture. Grill "
+                "like grill_product, but also go into the code: which module, flow or job is affected, "
                 "what the current behaviour actually is, and edge cases visible in the code. Verify the "
                 "Requester's claims about current behaviour against the code before relying on them."
             ),
@@ -94,9 +94,10 @@ TEMPLATES: dict[str, InterviewTemplate] = {
             label="快速 bug 回報（技術版）",
             focus=(
                 "This is a bug report from someone technical. Collect summary, environment (deployment "
-                "environment, version, camera/task/vendor ids), reproduction steps, expected vs actual, "
-                "logs, impact, and the suspected module. When the code is visible, use it to sharpen the "
-                "questions (e.g. \"does it fail before or after the Ensemble Gate?\")."
+                "environment, version, and the ids or data involved: camera/task/vendor for Middleware, the "
+                "scenario and its parameters for a simulator), reproduction steps, expected vs actual, logs, "
+                "impact, and the suspected module. When the code is visible, use it to sharpen the questions "
+                "(e.g. for Middleware \"does it fail before or after the Ensemble Gate?\")."
             ),
             spec_outline=_BUG_OUTLINE,
         ),

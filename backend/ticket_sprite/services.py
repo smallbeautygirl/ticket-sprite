@@ -55,6 +55,8 @@ from .models import (
     utcnow,
 )
 from .notify import Notifier, mention_for
+from .products import product as product_of
+from .products import products
 
 log = logging.getLogger(__name__)
 
@@ -189,7 +191,11 @@ async def create_interview(
     question_budget: str,
     audience: Role | None = None,
     assignee: str = "",
+    product: str = "",
 ) -> Interview:
+    product = product or next(iter(products(deps.settings)))
+    if product not in products(deps.settings):
+        raise FlowError(f"未知的 Product: {product}")
     if template not in TEMPLATES:
         raise FlowError(f"未知的 Interview Template: {template}")
     budget = next((b for b in QUESTION_BUDGETS if b.id == question_budget), None)
@@ -199,6 +205,7 @@ async def create_interview(
         raise FlowError("請輸入需求內容或附件")
     interview = Interview(
         requester_email=requester,
+        product=product,
         role=role,
         request_type=request_type,
         template=template,
@@ -223,7 +230,8 @@ async def create_interview(
 
 
 def knowledge_for(deps: Deps, interview: Interview) -> KnowledgeSource:
-    return KnowledgeSource(root=deps.settings.product_root, depth=depth_for(Role(interview.role)))
+    p = product_of(deps.settings, interview.product)
+    return KnowledgeSource(root=p.root(deps.settings), depth=depth_for(Role(interview.role)), product=p)
 
 
 def build_context(interview: Interview) -> InterviewContext:
@@ -832,7 +840,7 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
         title=title,
         description_html=spec_html(deps.settings, interview),
         parent_id=req.parent_id,
-        tags=["ticket-sprite", f"role:{interview.role}", f"to:{audience_of(interview)}"],
+        tags=["ticket-sprite", f"product:{interview.product}", f"role:{interview.role}", f"to:{audience_of(interview)}"],
         priority=req.priority,
         severity=req.severity if wi_type == "Bug" else None,
         attachment_urls=attachment_urls,

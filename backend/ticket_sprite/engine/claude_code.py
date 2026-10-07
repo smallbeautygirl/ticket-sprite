@@ -19,7 +19,7 @@ from pathlib import Path
 
 from ..config import Settings
 from ..knowledge import Depth, KnowledgeSource
-from .llm import DEPTH_NOTE, SYSTEM_PROMPT, EngineError, InterviewContext, round_prompt, spec_prompt
+from .llm import EngineError, InterviewContext, round_prompt, spec_prompt, system_prompt
 from .progress import EngineProgress, display_path
 from .schema import ROUND_SCHEMA, SPEC_SCHEMA, RoundResult, SpecResult
 
@@ -58,8 +58,8 @@ async def _result_event(stdout: asyncio.StreamReader, progress: EngineProgress |
     return result
 
 
-def _copy_docs(knowledge: KnowledgeSource, dest: Path) -> None:
-    """Materialise the docs-only view PM and FAE are allowed to see."""
+def _copy_visible(knowledge: KnowledgeSource, dest: Path) -> None:
+    """Materialise the view this depth may see (docs for PM and FAE; code minus the Product's hidden files)."""
     for rel in knowledge.visible_files():
         (dest / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(knowledge.root / rel, dest / rel)
@@ -79,7 +79,7 @@ class ClaudeCodeInterviewer:
     ) -> SpecResult:
         return SpecResult.from_json(await self._run(ctx, knowledge, spec_prompt(ctx), SPEC_SCHEMA, progress))
 
-    def _command(self, prompt: str, schema: dict, depth: Depth, attachment_dirs: list[Path]) -> list[str]:
+    def _command(self, prompt: str, schema: dict, knowledge: KnowledgeSource, attachment_dirs: list[Path]) -> list[str]:
         cmd = [
             self._s.claude_code_bin, "-p", prompt,
             "--output-format", "stream-json", "--verbose",
@@ -89,7 +89,7 @@ class ClaudeCodeInterviewer:
             "--no-session-persistence",
             "--setting-sources", "",
             "--strict-mcp-config",
-            "--system-prompt", SYSTEM_PROMPT.format(depth_note=DEPTH_NOTE[depth.value]) + TOOL_NOTE,
+            "--system-prompt", system_prompt(knowledge) + TOOL_NOTE,
             "--effort", self._s.anthropic_effort,
         ]
         if self._s.claude_code_model:
@@ -114,12 +114,13 @@ class ClaudeCodeInterviewer:
             prompt = f"Attachments (Read them before the first round):\n{listing}\n\n{prompt}"
 
         with tempfile.TemporaryDirectory(prefix="sprite-docs-") as tmp:
-            if knowledge.depth is Depth.DOCS:
-                _copy_docs(knowledge, Path(tmp))
+            # RD reads the product root in place, unless the Product hides files there (the CLI can't be told to skip them)
+            if knowledge.depth is Depth.DOCS or knowledge.product.hidden_globs:
+                _copy_visible(knowledge, Path(tmp))
                 cwd = Path(tmp)
             else:
                 cwd = knowledge.root
-            cmd = self._command(prompt, schema, knowledge.depth, attachment_dirs)
+            cmd = self._command(prompt, schema, knowledge, attachment_dirs)
             try:
                 proc = await asyncio.create_subprocess_exec(
                     *cmd, cwd=cwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,

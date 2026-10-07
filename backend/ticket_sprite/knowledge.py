@@ -1,7 +1,7 @@
-"""Knowledge Source: a dedicated, read-only `main` clone (ADR-0002).
+"""Knowledge Source: a dedicated, read-only clone per Product, tracking its branch (ADR-0002, ADR-0004).
 
 Tools exposed to the model are confined to the Product root. In `docs` depth
-(PM and FAE) only glossary / ADR / spec documents and the console's screens are visible.
+(PM and FAE) only glossary / ADR / spec documents and the Product's screens are visible.
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from .config import Settings
+from .products import MIDDLEWARE, Product, products
 
 log = logging.getLogger(__name__)
 
@@ -23,9 +24,8 @@ MAX_READ_LINES = 400
 MAX_GREP_HITS = 60
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "logs", ".pytest_cache", ".mypy_cache"}
 DOC_GLOBS = ["CONTEXT.md", "CONTEXT-MAP.md", "README*.md", "docs/**", "*.md"]
-# The middleware console's pages (their on-screen words and hash routes), without its styles or vendored libraries:
-# PM and FAE describe what they saw on screen, and need those words mapped to the glossary
-SCREEN_GLOBS = ["app/ui_static/*.html", "app/ui_static/js/*"]
+# Plus each Product's screens (Product.screen_globs): PM and FAE describe what they saw on screen,
+# and need those words mapped to the glossary
 
 
 class Depth(StrEnum):
@@ -41,6 +41,7 @@ class KnowledgeError(Exception):
 class KnowledgeSource:
     root: Path
     depth: Depth
+    product: Product = MIDDLEWARE
 
     def _resolve(self, rel: str) -> Path:
         rel = (rel or ".").lstrip("/")
@@ -56,9 +57,12 @@ class KnowledgeSource:
         rel = path.resolve().relative_to(self.root.resolve()).as_posix()
         if any(part in SKIP_DIRS for part in rel.split("/")):
             return False
+        if any(fnmatch.fnmatch(rel, g) for g in self.product.hidden_globs):
+            return False
         if self.depth is Depth.CODE:
             return True
-        return any(fnmatch.fnmatch(rel, g) or rel.startswith("docs/") for g in DOC_GLOBS + SCREEN_GLOBS)
+        globs = [*DOC_GLOBS, *self.product.screen_globs]
+        return any(fnmatch.fnmatch(rel, g) or rel.startswith("docs/") for g in globs)
 
     def visible_files(self):
         """Every file visible at this depth, relative to the product root."""
@@ -194,19 +198,37 @@ async def _git(*args: str, cwd: Path | None = None) -> tuple[int, str]:
     return proc.returncode or 0, out.decode(errors="ignore")
 
 
-async def sync_knowledge(settings: Settings) -> None:
-    repo = settings.knowledge_root / settings.knowledge_repo_dir
+async def sync_product(settings: Settings, p: Product) -> None:
+    """Bring a Product's clone to the tip of its branch.
+
+    Fetch-and-reset rather than pull: a feature branch may be rebased or force-pushed, and a
+    read-only clone has nothing of its own to keep. A local-path source may only know the branch
+    as a remote-tracking ref (fetched there but never checked out), so that ref is tried too.
+    """
+    repo = settings.knowledge_root / p.clone_dir
     if not (repo / ".git").exists():
-        settings.knowledge_root.mkdir(parents=True, exist_ok=True)
-        code, out = await _git(
-            "clone", "--branch", settings.knowledge_branch, "--single-branch",
-            settings.knowledge_repo_source, str(repo),
-        )
-        log.info("knowledge clone exit=%s %s", code, out[-300:])
+        repo.mkdir(parents=True, exist_ok=True)
+        await _git("init", "-q", cwd=repo)
+        await _git("remote", "add", "origin", settings.knowledge_repo_source, cwd=repo)
+    tracking = f"refs/remotes/origin/{p.branch}"
+    for ref in (f"refs/heads/{p.branch}", tracking):
+        code, out = await _git("fetch", "-q", "origin", f"+{ref}:{tracking}", cwd=repo)
+        if code == 0:
+            break
+    else:
+        log.warning("knowledge fetch failed for %s (%s): %s", p.id, p.branch, out[-300:])
         return
-    code, out = await _git("pull", "--ff-only", "origin", settings.knowledge_branch, cwd=repo)
+    code, out = await _git("checkout", "-q", "-f", "-B", p.branch, tracking, cwd=repo)
     if code:
-        log.warning("knowledge pull failed: %s", out[-300:])
+        log.warning("knowledge checkout failed for %s: %s", p.id, out[-300:])
+
+
+async def sync_knowledge(settings: Settings) -> None:
+    for p in products(settings).values():
+        try:
+            await sync_product(settings, p)
+        except Exception:  # one Product's trouble must not keep the others stale
+            log.exception("knowledge sync failed for %s", p.id)
 
 
 async def knowledge_sync_loop(settings: Settings) -> None:

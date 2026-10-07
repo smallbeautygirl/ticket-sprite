@@ -187,6 +187,7 @@ function Requests() {
           <div key={i.id} className="item-row">
           <Link href={`/interviews/${i.id}`} className="item">
             <span className={`badge ${STATUS_BADGE[i.status]}`}>{STATUS_LABEL[i.status]}</span>
+            <span className="badge">{i.product_label}</span>
             <span className="badge">{TYPE_LABEL[i.request_type]}</span>
             <span className="title">{i.title}</span>
             {i.ticket_id && <span className="small">#{i.ticket_id}</span>}
