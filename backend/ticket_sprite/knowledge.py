@@ -1,7 +1,7 @@
 """Knowledge Source: a dedicated, read-only `main` clone (ADR-0002).
 
 Tools exposed to the model are confined to the Product root. In `docs` depth
-(the PM role) only glossary / ADR / spec documents are visible.
+(PM and FAE) only glossary / ADR / spec documents and the console's screens are visible.
 """
 
 from __future__ import annotations
@@ -23,6 +23,9 @@ MAX_READ_LINES = 400
 MAX_GREP_HITS = 60
 SKIP_DIRS = {".git", "__pycache__", "node_modules", ".venv", "logs", ".pytest_cache", ".mypy_cache"}
 DOC_GLOBS = ["CONTEXT.md", "CONTEXT-MAP.md", "README*.md", "docs/**", "*.md"]
+# The middleware console's pages (their on-screen words and hash routes), without its styles or vendored libraries:
+# PM and FAE describe what they saw on screen, and need those words mapped to the glossary
+SCREEN_GLOBS = ["app/ui_static/*.html", "app/ui_static/js/*"]
 
 
 class Depth(StrEnum):
@@ -55,7 +58,13 @@ class KnowledgeSource:
             return False
         if self.depth is Depth.CODE:
             return True
-        return any(fnmatch.fnmatch(rel, g) or rel.startswith("docs/") for g in DOC_GLOBS)
+        return any(fnmatch.fnmatch(rel, g) or rel.startswith("docs/") for g in DOC_GLOBS + SCREEN_GLOBS)
+
+    def visible_files(self):
+        """Every file visible at this depth, relative to the product root."""
+        root = self.root.resolve()
+        for p in self._iter_files(self.root):
+            yield p.resolve().relative_to(root)
 
     def _iter_files(self, base: Path):
         for dirpath, dirnames, filenames in os.walk(base):

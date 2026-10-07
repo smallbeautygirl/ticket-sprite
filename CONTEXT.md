@@ -76,7 +76,7 @@ Request 所針對的產品；決定 Knowledge Source 與預設 Parent。目前�
 _Avoid_: App, Project, 模組
 
 **Knowledge Source**:
-Interview 時用來對照用詞與現況的資料來源（Product 的文件與 spec；只有 RD 另含程式碼）。Middleware 的 Knowledge Source 為 visionai_middleware 的 main branch。
+Interview 時用來對照用詞與現況的資料來源（Product 的文件、spec 與 console 畫面；只有 RD 另含其餘程式碼）。Middleware 的 Knowledge Source 為 visionai_middleware 的 main branch。
 _Avoid_: Docs, Context
 
 **New Term**:

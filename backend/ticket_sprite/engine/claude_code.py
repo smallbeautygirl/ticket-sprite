@@ -15,7 +15,7 @@ import tempfile
 from pathlib import Path
 
 from ..config import Settings
-from ..knowledge import DOC_GLOBS, SKIP_DIRS, Depth, KnowledgeSource
+from ..knowledge import Depth, KnowledgeSource
 from .llm import DEPTH_NOTE, SYSTEM_PROMPT, EngineError, InterviewContext, round_prompt, spec_prompt
 from .progress import EngineProgress, display_path
 from .schema import ROUND_SCHEMA, SPEC_SCHEMA, RoundResult, SpecResult
@@ -55,14 +55,11 @@ async def _result_event(stdout: asyncio.StreamReader, progress: EngineProgress |
     return result
 
 
-def _copy_docs(root: Path, dest: Path) -> None:
-    """Materialise the docs-only view the PM role is allowed to see."""
-    for item in sorted(root.iterdir()):
-        if item.is_file() and any(item.match(g) for g in DOC_GLOBS if "/" not in g):
-            shutil.copy2(item, dest / item.name)
-    docs = root / "docs"
-    if docs.is_dir():
-        shutil.copytree(docs, dest / "docs", ignore=shutil.ignore_patterns(*SKIP_DIRS))
+def _copy_docs(knowledge: KnowledgeSource, dest: Path) -> None:
+    """Materialise the docs-only view PM and FAE are allowed to see."""
+    for rel in knowledge.visible_files():
+        (dest / rel).parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(knowledge.root / rel, dest / rel)
 
 
 class ClaudeCodeInterviewer:
@@ -115,7 +112,7 @@ class ClaudeCodeInterviewer:
 
         with tempfile.TemporaryDirectory(prefix="sprite-docs-") as tmp:
             if knowledge.depth is Depth.DOCS:
-                _copy_docs(knowledge.root, Path(tmp))
+                _copy_docs(knowledge, Path(tmp))
                 cwd = Path(tmp)
             else:
                 cwd = knowledge.root

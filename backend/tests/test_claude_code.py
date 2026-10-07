@@ -29,7 +29,8 @@ def _fake_claude(tmp_path: Path, payload: dict) -> Path:
     script.write_text(
         f"#!{sys.executable}\n"
         "import json, os, sys\n"
-        f"json.dump({{'argv': sys.argv[1:], 'cwd': os.getcwd(), 'files': sorted(os.listdir('.'))}}, open({str(log)!r}, 'w'))\n"
+        "tree = sorted(os.path.relpath(os.path.join(d, f)) for d, _, fs in os.walk('.') for f in fs)\n"
+        f"json.dump({{'argv': sys.argv[1:], 'cwd': os.getcwd(), 'files': sorted(os.listdir('.')), 'tree': tree}}, open({str(log)!r}, 'w'))\n"
         f"print(json.dumps({payload!r}))\n",
         encoding="utf-8",
     )
@@ -60,8 +61,10 @@ async def test_docs_depth_runs_in_docs_only_copy(settings, tmp_path):
     assert result.done
     call = json.loads((tmp_path / "claude-call.json").read_text())
     argv = call["argv"]
-    # PM sees documents only: the CLI runs in a copy without app/ code
-    assert call["files"] == ["CONTEXT.md", "docs"]
+    # PM sees documents and the console screens only: the CLI runs in a copy without app/ code
+    assert call["files"] == ["CONTEXT.md", "app", "docs"]
+    assert call["tree"] == ["CONTEXT.md", "app/ui_static/index.html", "app/ui_static/js/features/index.js",
+                            "docs/adr/0001-x.md"]
     assert Path(call["cwd"]) != settings.product_root
     assert argv[argv.index("--permission-mode") + 1] == "dontAsk"
     assert argv[argv.index("--tools") + 1 : argv.index("--tools") + 4] == ["Read", "Grep", "Glob"]

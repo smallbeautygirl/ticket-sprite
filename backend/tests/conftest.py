@@ -118,6 +118,12 @@ def settings(tmp_path) -> Settings:
     (product / "CONTEXT.md").write_text("# MW\n**Exclusion Area**: polygon\n", encoding="utf-8")
     (product / "docs" / "adr" / "0001-x.md").write_text("# ADR\n", encoding="utf-8")
     (product / "app" / "gate.py").write_text("def ensemble_gate():\n    return True\n", encoding="utf-8")
+    screens = product / "app" / "ui_static"
+    (screens / "js" / "features").mkdir(parents=True)
+    (screens / "css").mkdir()
+    (screens / "index.html").write_text("<title>Middleware Console</title>\n", encoding="utf-8")
+    (screens / "js" / "features" / "index.js").write_text("export const FEATURES = [whitelistFeature];\n", encoding="utf-8")
+    (screens / "css" / "base.css").write_text("body { margin: 0 }\n", encoding="utf-8")
     return Settings(
         _env_file=None,
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",

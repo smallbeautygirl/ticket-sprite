@@ -7,8 +7,8 @@ import PersonInput from "@/components/PersonInput";
 import { api, Meta, RequestType, Role, ROLE_LABEL, TYPE_LABEL } from "@/lib/api";
 
 const PLACEHOLDER: Record<Role, string> = {
-  pm: "例如：客戶希望在 Exclusion Area 之外，也能依時段過濾事件……（可直接貼上客戶 email 或會議記錄）",
-  fae: "例如：客戶現場 staging2 的 Ensemble Gate 一直判定失敗，log 如附件……",
+  pm: "例如：客戶希望在 Exclusion Area 之外，也能依時段過濾事件……（可直接貼上客戶 email 或會議記錄；在 console 上看到的，貼上頁面網址並附截圖）",
+  fae: "例如：客戶現場 staging2 的 Ensemble Gate 一直判定失敗，log 如附件……（在 console 上看到的，貼上頁面網址並附截圖）",
   rd: "貼上「我目前的理解」和「想問 PM 的問題」。例如：\n我的理解：標注存在 middleware 自己的 processed_event_annotations……\n想請教：1. 需求來源？2. 標完要給誰用？",
 };
 
@@ -165,7 +165,7 @@ export default function NewRequest() {
           <span className="form-label">
             Role
             <Hint label="Role">
-              你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM、Solution Engineer 只看文件和 spec；RD 可以看程式碼。不影響權限。
+              你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM、Solution Engineer 看文件、spec 和 console 畫面；RD 可以看全部程式碼。不影響權限。
             </Hint>
           </span>
           <div className="seg" role="group" aria-label="Role">

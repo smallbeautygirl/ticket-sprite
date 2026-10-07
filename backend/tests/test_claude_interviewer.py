@@ -79,7 +79,7 @@ async def test_tool_loop_and_request_shape(settings):
     assert first["fallbacks"] == "default"
     assert first["output_config"]["format"]["type"] == "json_schema"
     assert {t["name"] for t in first["tools"]} == {"list_files", "grep", "read_file"}
-    assert "documents only" in first["system"]
+    assert "the console's screens (app/ui_static); other code is not visible" in first["system"]
     # Append-only: the second request replays the first assistant turn and adds the tool result
     assert second["messages"][1]["role"] == "assistant"
     tool_result = second["messages"][2]["content"][0]

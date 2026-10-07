@@ -18,6 +18,15 @@ def test_docs_depth_hides_code(settings):
     assert "Exclusion Area" in ks.read_file("CONTEXT.md")
 
 
+def test_docs_depth_sees_the_console_screens(settings):
+    """PM and Solution Engineer find things on the console, so its pages are visible without code access."""
+    ks = KnowledgeSource(root=settings.product_root, depth=Depth.DOCS)
+    listing = ks.list_files()
+    assert "app/ui_static/index.html" in listing and "app/ui_static/js/features/index.js" in listing
+    assert "base.css" not in listing
+    assert "whitelistFeature" in ks.read_file("app/ui_static/js/features/index.js")
+
+
 def test_code_depth_reads_code(settings):
     ks = KnowledgeSource(root=settings.product_root, depth=Depth.CODE)
     assert "app/gate.py:1:" in ks.grep("ensemble_gate")

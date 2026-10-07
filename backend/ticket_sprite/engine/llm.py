@@ -101,6 +101,11 @@ Knowledge Source with the tools (glossary CONTEXT.md, docs/adr, specs, and code 
 Do not ask what you can look up; instead state what you found and ask for the decision.
 - Challenge language against the glossary: when the Requester uses a term that conflicts with \
 CONTEXT.md, or a vague term, propose the precise canonical term. Record such terms in new_terms.
+- The middleware console's screens are in app/ui_static. A console page URL such as \
+https://<host>/middleware-ui/#/whitelist names a page by the id after "#/": find it in \
+app/ui_static/js/features (each feature's id, title and description). Use the screens to map what the \
+Requester saw on screen to glossary terms and the API behind it, but write the Spec in the words on \
+screen and in product terms, not code.
 - Stress-test with concrete edge-case scenarios.
 - Answers marked 不知道 become Open Questions; do not re-ask them, but you may ask a narrower \
 question if it unblocks other branches. Answers marked 跳過 mean the recommended answer was \
@@ -113,7 +118,8 @@ Knowledge Source access for this interview: {depth_note}
 """
 
 DEPTH_NOTE = {
-    "docs": "documents only (CONTEXT.md, README, docs/**). Code files are not visible.",
+    "docs": "documents (CONTEXT.md, README, docs/**) and the console's screens (app/ui_static); "
+    "other code is not visible.",
     "code": "full repository of the product, including code.",
 }
 
