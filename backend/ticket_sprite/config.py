@@ -33,7 +33,12 @@ class Settings(BaseSettings):
     # --- Claude ---
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
-    llm_mode: Literal["claude", "fake"] = "claude"
+    llm_mode: Literal["claude", "claude_code", "fake"] = "claude"
+    # claude_code: run the owner's own `claude -p` (their Claude login). Single-user only.
+    claude_code_bin: str = "claude"
+    claude_code_model: str = ""  # empty = the CLI's default model
+    claude_code_timeout_seconds: int = 900
+    owner_email: str = ""  # the only account allowed to log in when single_user
 
     # --- Knowledge Source (ADR-0002) ---
     knowledge_root: Path = Path("./knowledge")
@@ -52,6 +57,11 @@ class Settings(BaseSettings):
     handoff_reminder_working_days: int = 2
     handoff_max_reminders: int = 2
     reminder_check_interval_seconds: int = 1800
+
+    @property
+    def single_user(self) -> bool:
+        """The owner's personal Claude login may only serve the owner."""
+        return self.llm_mode == "claude_code"
 
     @property
     def product_root(self) -> Path:

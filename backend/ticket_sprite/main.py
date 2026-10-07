@@ -10,6 +10,7 @@ from fastapi import FastAPI
 
 from . import db
 from .config import Settings, get_settings
+from .engine.claude_code import ClaudeCodeInterviewer
 from .engine.llm import ClaudeInterviewer, FakeInterviewer, InterviewLLM
 from .knowledge import knowledge_sync_loop
 from .notify import Notifier
@@ -33,7 +34,13 @@ def create_app(
         db.init_engine(settings.database_url)
         await db.create_all()
         settings.upload_dir.mkdir(parents=True, exist_ok=True)
-        chosen_llm = llm or (FakeInterviewer() if settings.llm_mode == "fake" else ClaudeInterviewer(settings))
+        if settings.single_user and not settings.owner_email:
+            raise RuntimeError("LLM_MODE=claude_code requires OWNER_EMAIL (single-user mode)")
+        chosen_llm = llm or {
+            "fake": FakeInterviewer,
+            "claude_code": lambda: ClaudeCodeInterviewer(settings),
+            "claude": lambda: ClaudeInterviewer(settings),
+        }[settings.llm_mode]()
         app.state.deps = Deps(
             settings=settings,
             sessionmaker=db.sessionmaker(),

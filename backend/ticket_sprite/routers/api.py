@@ -50,6 +50,8 @@ async def login(
     session: AsyncSession = Depends(get_session),
 ):
     email = body.email.strip().lower()
+    if settings.single_user and email != settings.owner_email.strip().lower():
+        raise HTTPException(status_code=403, detail="目前是單人試用模式，只開放給擁有者登入")
     if settings.auth_mode == "dev":
         identity = ObservIdentity(observ_id=None, email=email, display_name=email.split("@")[0])
     else:
@@ -221,6 +223,7 @@ async def meta(settings: Settings = Depends(get_settings)):
         "default_parent_id": settings.ado_default_parent_id,
         "severities": SEVERITIES,
         "auth_mode": settings.auth_mode,
+        "single_user": settings.single_user,
     }
 
 

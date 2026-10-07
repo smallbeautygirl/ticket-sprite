@@ -26,6 +26,7 @@ export interface Meta {
   default_parent_id: number;
   severities: string[];
   auth_mode: "observ" | "dev";
+  single_user: boolean;
 }
 
 export interface InterviewSummary {

@@ -65,7 +65,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const pending = d.questions.filter((q) => q.status === "pending");
   const myPending = pending.filter((q) => q.can_respond);
   const selectable = (q: Question) =>
-    d.is_requester && interviewing && q.status === "pending" && q.respondent === d.requester;
+    !meta?.single_user && d.is_requester && interviewing && q.status === "pending" && q.respondent === d.requester;
 
   async function run(fn: () => Promise<unknown>) {
     setBusy(true);
@@ -253,7 +253,9 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
             <div className="row">
               <span className="muted small">
                 {myPending.length > 0
-                  ? `你還有 ${myPending.length} 題待回答；勾選題目可轉交給同事。`
+                  ? meta?.single_user
+                    ? `你還有 ${myPending.length} 題待回答。要問別人時，把題目複製給對方，再代為填入回答。`
+                    : `你還有 ${myPending.length} 題待回答；勾選題目可轉交給同事。`
                   : pending.length > 0
                     ? `等待其他人回答 ${pending.length} 題。`
                     : d.engine_busy

@@ -29,6 +29,21 @@ docker compose up -d --build
 - Knowledge Source 第一次會從 `/opt/lighthouse-saas-api` clone `main` 分支到 volume。注意：用本機路徑當來源時，只看得到那份工作目錄已經 fetch 過的 `main`。要永遠追 GitHub 上的 `main`，就把 `KNOWLEDGE_REPO_SOURCE` 改成 GitHub URL，並掛一把唯讀的 deploy key。
 - Teams 通知：在頻道建一個 Workflows「收到 webhook 時發文到頻道」，把 URL 填進 `TEAMS_WEBHOOK_URL`。
 
+## 單人試用（沒有 API key，用自己的 Claude Code）
+
+拷問改由你本機的 `claude -p` 執行，用的是你自己的 Claude 登入。因為個人帳號不能替別人服務，這個模式**只開放 `OWNER_EMAIL` 登入，也不能轉交題目**。
+
+```bash
+cd backend
+AUTH_MODE=dev LLM_MODE=claude_code OWNER_EMAIL=you@linkervision.com \
+FERNET_KEY=... SESSION_SECRET=... \
+  .venv/bin/uvicorn ticket_sprite.main:app --port 8000
+cd ../frontend && npm run build && npm start      # http://localhost:3000
+```
+
+- PM 角色：CLI 在一份只有文件的複本裡執行，看不到程式碼。FAE、RD 角色：直接在產品目錄執行。工作目錄以外的讀取一律被拒絕（`--permission-mode dontAsk`）。
+- 每一輪可能要等幾分鐘，因為 CLI 會實際去查文件和程式碼。
+
 ## 本機開發
 
 ```bash

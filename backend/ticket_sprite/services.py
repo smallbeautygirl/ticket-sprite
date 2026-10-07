@@ -424,6 +424,8 @@ async def create_handoff(
     deps: Deps, session: AsyncSession, interview_id: str, user: str, question_ids: list[str], to_email: str,
     notify: bool,
 ) -> Handoff:
+    if deps.settings.single_user:
+        raise FlowError("單人試用模式不能轉交：請把題目複製給對方，再代為填入對方的回答")
     interview = await load_interview(session, interview_id)
     if interview.requester_email != user:
         raise FlowError("只有 Requester 可以轉交題目", 403)
