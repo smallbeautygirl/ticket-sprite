@@ -18,6 +18,14 @@ _Avoid_: Answerer, 回覆者
 Requester 本次 Interview 所採用的身份：PM、FAE 或 RD（預設 PM）；只決定預設的 Interview Template 與 Knowledge Source 深度，不代表權限。
 _Avoid_: 權限, 職稱
 
+**Audience**:
+Spec 寫給哪個 Role 看（To）：PM、FAE 發起預設 to RD，RD 發起預設 to PM，Requester 可改。決定 AI 問什麼、Spec 怎麼寫。
+_Avoid_: 收件人, Target
+
+**Assignee**:
+Ticket 在 ADO 上指派的同事（Assigned To），選填；建立 Interview 時可先填，開票前還能改。和 Respondent 無關。
+_Avoid_: Owner, 負責人
+
 **Customer**:
 提出原始需求的外部客戶；不會進入小精靈，其資料由 Requester 以 Attachment 帶入。
 _Avoid_: Client

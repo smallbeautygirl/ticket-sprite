@@ -25,6 +25,7 @@ export interface Meta {
   default_template: Record<string, string>;
   question_budgets: { id: string; label: string; limit: number | null }[];
   default_question_budget: string;
+  default_audience: Record<Role, Role>;
   default_parent_id: number;
   severities: string[];
   auth_mode: "observ" | "dev";
@@ -97,6 +98,8 @@ export interface InterviewDetail extends InterviewSummary {
   round: number;
   question_budget: number | null;
   questions_asked: number;
+  audience: Role;
+  assignee: string | null;
   engine_busy: boolean;
   engine_done: boolean;
   engine_error: string | null;
@@ -186,7 +189,14 @@ export const api = {
     request(`/interviews/${id}/spec`, { method: "PUT", body: json({ title, markdown }) }),
   createTicket: (
     id: string,
-    body: { title: string; parent_id: number | null; priority: number | null; severity: string | null; notify: boolean },
+    body: {
+      title: string;
+      parent_id: number | null;
+      priority: number | null;
+      severity: string | null;
+      notify: boolean;
+      assignee: string | null;
+    },
   ) => request<{ ticket_id: number; ticket_url: string }>(`/interviews/${id}/ticket`, { method: "POST", body: json(body) }),
   decisionRecord: (id: string, title: string) =>
     request<{ link: string }>(`/interviews/${id}/decision-record`, { method: "POST", body: json({ title }) }),

@@ -136,6 +136,19 @@ def default_template(role: Role, request_type: RequestType) -> str:
     return DEFAULT_TEMPLATE[(role, request_type)]
 
 
+# PM and FAE hand work to RD; RD clarifies with PM
+DEFAULT_AUDIENCE: dict[Role, Role] = {Role.PM: Role.RD, Role.FAE: Role.RD, Role.RD: Role.PM}
+
+AUDIENCE_NOTE: dict[Role, str] = {
+    Role.RD: "RD, who will build it: precise acceptance criteria, edge cases and the related modules; "
+    "no product pitch.",
+    Role.PM: "a PM, who decides product scope: product language, user impact and the decisions needed; "
+    "name modules only when it matters, no code-level detail.",
+    Role.FAE: "an FAE, who works with customer sites: site and deployment impact, how to verify on site, "
+    "workarounds and what to tell the Customer.",
+}
+
+
 def depth_for(role: Role) -> Depth:
     """PM reads documents only; FAE and RD can read code (Q19)."""
     return Depth.DOCS if role is Role.PM else Depth.CODE

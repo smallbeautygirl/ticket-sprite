@@ -17,6 +17,8 @@ export default function NewRequest() {
   const [type, setType] = useState<RequestType>("feature");
   const [template, setTemplate] = useState<string>("");
   const [budget, setBudget] = useState<string>("");
+  const [audience, setAudience] = useState<Role>("rd");
+  const [assignee, setAssignee] = useState("");
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
@@ -34,6 +36,8 @@ export default function NewRequest() {
   }, []);
 
   const defaultTemplate = meta?.default_template[`${role}:${type}`] ?? "";
+  const defaultAudience = meta?.default_audience[role] ?? (role === "rd" ? "pm" : "rd");
+  useEffect(() => setAudience(defaultAudience), [defaultAudience]);
   useEffect(() => setTemplate(defaultTemplate), [defaultTemplate]);
 
   async function submit() {
@@ -45,6 +49,8 @@ export default function NewRequest() {
     form.set("text", text);
     if (template) form.set("template", template);
     if (budget) form.set("question_budget", budget);
+    form.set("audience", audience);
+    form.set("assignee", assignee.trim());
     files.forEach((f) => form.append("files", f));
     try {
       const { id } = await api.createInterview(form);
@@ -80,6 +86,28 @@ export default function NewRequest() {
             ))}
           </div>
         </div>
+        <div className="row">
+          <span className="muted small" style={{ width: 70 }}>To</span>
+          <div className="seg">
+            {(meta?.roles ?? ["pm", "fae", "rd"]).map((r) => (
+              <button key={r} className={audience === r ? "on" : ""} onClick={() => setAudience(r as Role)}>
+                {ROLE_LABEL[r as Role]}
+                {r === defaultAudience ? "（預設）" : ""}
+              </button>
+            ))}
+          </div>
+          <input
+            type="email"
+            aria-label="指派給"
+            placeholder="指派給（選填），例如 kevin@linkervision.com"
+            value={assignee}
+            onChange={(e) => setAssignee(e.target.value)}
+            style={{ flex: 1, minWidth: 220, width: "auto" }}
+          />
+        </div>
+        <p className="muted small" style={{ margin: "-6px 0 0 78px" }}>
+          小精靈會照 {ROLE_LABEL[audience]} 需要知道的事來問、來寫 Spec；填了指派對象，開 ADO 票時會設成 Assigned To。
+        </p>
         <div className="row">
           <span className="muted small" style={{ width: 70 }}>拷問方式</span>
           <select value={template} onChange={(e) => setTemplate(e.target.value)} style={{ width: "auto" }}>

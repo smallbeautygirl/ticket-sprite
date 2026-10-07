@@ -19,7 +19,8 @@ from ..config import Settings
 from ..knowledge import TOOL_DEFS, KnowledgeError, KnowledgeSource
 from .progress import EngineProgress
 from .schema import ROUND_SCHEMA, SPEC_SCHEMA, DraftQuestion, RoundResult, SpecResult
-from .templates import InterviewTemplate
+from ..models import Role
+from .templates import AUDIENCE_NOTE, InterviewTemplate
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,7 @@ class InterviewContext:
     round: int = 0
     summary: str | None = None
     question_budget: int | None = None
+    audience: str = "rd"
 
     @property
     def asked(self) -> int:
@@ -189,7 +191,9 @@ def _attachment_blocks(attachments: list[AttachmentInput]) -> list[dict]:
 def _context_text(ctx: InterviewContext) -> str:
     return (
         f"Interview Template: {ctx.template.id} — {ctx.template.focus}\n\n"
-        f"Role: {ctx.role}  Request Type: {ctx.request_type}  Requester: {ctx.requester}\n\n"
+        f"Role: {ctx.role}  Request Type: {ctx.request_type}  Requester: {ctx.requester}\n"
+        f"Audience: the Spec is for {AUDIENCE_NOTE[Role(ctx.audience)]} Ask what that reader needs "
+        "and write the Spec for them.\n\n"
         f"<request>\n{ctx.request_text}\n</request>\n\n"
         f"Current understanding: {ctx.summary or '(none yet)'}\n\n"
         f"<interview_so_far>\n{render_history(ctx)}\n</interview_so_far>"

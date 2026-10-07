@@ -92,6 +92,10 @@ class Interview(Base):
     round: Mapped[int] = mapped_column(Integer, default=0)
     # Question Budget: most questions this Interview may ask; None = no limit
     question_budget: Mapped[int | None] = mapped_column(Integer)
+    # Audience: the Role the Spec is written for; None (older rows) = default_audience(role)
+    audience: Mapped[str | None] = mapped_column(String(8))
+    # Assignee: who the Ticket is assigned to in ADO, if the Requester named someone
+    assignee_email: Mapped[str | None] = mapped_column(String(320))
     engine_done: Mapped[bool] = mapped_column(Boolean, default=False)
     engine_busy: Mapped[bool] = mapped_column(Boolean, default=False)
     engine_summary: Mapped[str | None] = mapped_column(Text)

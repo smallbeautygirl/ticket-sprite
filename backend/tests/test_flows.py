@@ -81,7 +81,8 @@ async def test_pm_feature_flow_to_ticket(app, deps, vivian, fake_ado, notifier, 
     assert r.status_code == 200 and r.json()["display_name"] == "Vivian Fan"
 
     r = await vivian.post(
-        f"/api/interviews/{iid}/ticket", json={"title": "開放標注", "parent_id": 41152, "priority": 2}
+        f"/api/interviews/{iid}/ticket",
+        json={"title": "開放標注", "parent_id": 41152, "priority": 2, "assignee": " Kevin@LinkerVision.com "},
     )
     assert r.status_code == 200, r.text
     assert r.json()["ticket_url"].endswith("/_workitems/edit/50001")
@@ -92,7 +93,8 @@ async def test_pm_feature_flow_to_ticket(app, deps, vivian, fake_ado, notifier, 
     assert fields["/fields/System.Title"] == "開放標注"
     assert "改過" in fields["/fields/System.Description"]
     assert f"/interviews/{iid}" in fields["/fields/System.Description"]
-    assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm"
+    assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm; to:rd"
+    assert fields["/fields/System.AssignedTo"] == "kevin@linkervision.com"
     relations = [op["value"] for op in created["ops"] if op["path"] == "/relations/-"]
     assert {"rel": "System.LinkTypes.Hierarchy-Reverse",
             "url": "https://dev.azure.com/linkerengineer/_apis/wit/workItems/41152"} in relations
@@ -420,3 +422,23 @@ async def test_cannot_delete_while_the_engine_works(app, deps, vivian, llm):
     gate.set()
     await deps.drain()
     assert (await vivian.delete(f"/api/interviews/{iid}")).status_code == 200
+
+
+async def test_audience_defaults_by_role_and_reaches_the_prompt(app, deps, vivian, llm):
+    iid = (await vivian.post("/api/interviews", data={"role": "rd", "request_type": "task", "text": "x"})).json()["id"]
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["audience"] == "pm" and d["assignee"] is None  # RD clarifies with PM
+
+    iid = (await vivian.post("/api/interviews", data={
+        "role": "pm", "request_type": "feature", "text": "x", "audience": "fae", "assignee": "Kevin@LinkerVision.com",
+    })).json()["id"]
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert d["audience"] == "fae" and d["assignee"] == "kevin@linkervision.com"
+    ctx = llm.calls[-1][1]
+    assert "Audience: the Spec is for an FAE" in round_prompt(ctx)
+
+    r = await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
+                                                   "assignee": "not-an-email"})
+    assert r.status_code == 400

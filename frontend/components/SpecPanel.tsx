@@ -44,6 +44,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   const [results, setResults] = useState<WorkItem[]>([]);
   const [priority, setPriority] = useState<number>(d.suggested_priority ?? 2);
   const [severity, setSeverity] = useState<string>(d.suggested_severity ?? "3 - Medium");
+  const [assignee, setAssignee] = useState(d.assignee ?? "");
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -215,6 +216,15 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
               </div>
             )}
           </div>
+          <label className="field">
+            <span>Assigned To（選填）</span>
+            <input
+              type="email"
+              placeholder="例如 kevin@linkervision.com；留空則不指派"
+              value={assignee}
+              onChange={(e) => setAssignee(e.target.value)}
+            />
+          </label>
           <div className="grid-2">
             <label className="field">
               <span>Priority（AI 建議 {d.suggested_priority ?? "-"}）</span>
@@ -262,6 +272,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
                     priority,
                     severity: d.request_type === "bug" ? severity : null,
                     notify,
+                    assignee: assignee.trim() || null,
                   });
                 })
               }

@@ -216,6 +216,7 @@ class AdoClient:
         priority: int | None,
         severity: str | None,
         attachment_urls: list[str],
+        assigned_to: str | None = None,
     ) -> CreatedWorkItem:
         wi_type = WORK_ITEM_TYPE[request_type]
         ops: list[dict] = [
@@ -231,6 +232,8 @@ class AdoClient:
                 ops.append({"op": "add", "path": "/fields/Microsoft.VSTS.Common.Severity", "value": severity})
         if priority:
             ops.append({"op": "add", "path": "/fields/Microsoft.VSTS.Common.Priority", "value": priority})
+        if assigned_to:
+            ops.append({"op": "add", "path": "/fields/System.AssignedTo", "value": assigned_to})
         if parent_id:
             ops.append(
                 {

@@ -26,7 +26,7 @@ from .config import Settings
 from .engine.llm import AttachmentInput, EngineError, InterviewContext, InterviewLLM, QAItem
 from .engine.progress import EngineProgress
 from .engine.schema import DraftQuestion
-from .engine.templates import QUESTION_BUDGETS, TEMPLATES, depth_for
+from .engine.templates import DEFAULT_AUDIENCE, QUESTION_BUDGETS, TEMPLATES, depth_for
 from .knowledge import KnowledgeSource
 from .models import (
     Attachment,
@@ -157,6 +157,8 @@ async def create_interview(
     text: str,
     files: list[UploadFile],
     question_budget: str,
+    audience: Role | None = None,
+    assignee: str = "",
 ) -> Interview:
     if template not in TEMPLATES:
         raise FlowError(f"未知的 Interview Template: {template}")
@@ -172,6 +174,8 @@ async def create_interview(
         template=template,
         request_text=text.strip(),
         question_budget=budget.limit,
+        audience=audience or DEFAULT_AUDIENCE[role],
+        assignee_email=_assignee(assignee),
         engine_busy=True,
     )
     session.add(interview)
@@ -216,12 +220,26 @@ def build_context(interview: Interview) -> InterviewContext:
         round=interview.round,
         summary=interview.engine_summary,
         question_budget=interview.question_budget,
+        audience=audience_of(interview),
     )
 
 
 def _merge_terms(existing: list, new: list) -> list:
     seen = {t.get("term") for t in existing}
     return [*existing, *(t for t in new if t.get("term") not in seen)]
+
+
+def audience_of(interview: Interview) -> str:
+    return interview.audience or DEFAULT_AUDIENCE[Role(interview.role)]
+
+
+def _assignee(email: str | None) -> str | None:
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise FlowError(f"指派對象的 email 格式不正確：{email}")
+    return email
 
 
 def _has_pending(interview: Interview) -> bool:
@@ -670,6 +688,7 @@ class TicketRequest:
     priority: int | None
     severity: str | None
     notify: bool
+    assignee: str | None = None
 
 
 async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, user: str, req: TicketRequest) -> Interview:
@@ -679,6 +698,7 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
         raise FlowError("Severity 不正確")
     if req.priority is not None and req.priority not in (1, 2, 3, 4):
         raise FlowError("Priority 必須是 1-4")
+    assignee = _assignee(req.assignee)
 
     requester = await session.get(User, user)
     ado = AdoClient(deps.settings, AdoCredentialProvider(deps.settings).auth_header(requester), deps.ado_transport)
@@ -694,12 +714,14 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
         title=title,
         description_html=spec_html(deps.settings, interview),
         parent_id=req.parent_id,
-        tags=["ticket-sprite", f"role:{interview.role}"],
+        tags=["ticket-sprite", f"role:{interview.role}", f"to:{audience_of(interview)}"],
         priority=req.priority,
         severity=req.severity if interview.request_type == RequestType.BUG else None,
         attachment_urls=attachment_urls,
+        assigned_to=assignee,
     )
     interview.title = title
+    interview.assignee_email = assignee
     interview.ticket_id = created.id
     interview.ticket_url = created.url
     interview.parent_id = req.parent_id
@@ -711,6 +733,7 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
         await deps.notifier.post(
             f"開票小精靈：#{created.id} {title}",
             [f"{user} 開了一張 {interview.request_type}（role: {interview.role}）"
+             + (f"，指派給 {assignee}" if assignee else "")
              + (f"，Parent #{req.parent_id}" if req.parent_id else "")],
             link=("在 Azure DevOps 開啟", created.url),
         )
