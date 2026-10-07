@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import Hint from "@/components/Hint";
 import PersonInput from "@/components/PersonInput";
 import { api, Meta, RequestType, Role, ROLE_LABEL, TYPE_LABEL } from "@/lib/api";
 
@@ -153,7 +154,12 @@ export default function NewRequest() {
       </section>
       <div className="card stack">
         <div className="row">
-          <span className="muted small" style={{ width: 70 }}>Role</span>
+          <span className="form-label">
+            Role
+            <Hint label="Role">
+              你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM 只看文件；FAE、RD 可以看程式碼。不影響權限。
+            </Hint>
+          </span>
           <div className="seg">
             {(meta?.roles ?? ["pm", "fae", "rd"]).map((r) => (
               <button key={r} className={role === r ? "on" : ""} onClick={() => pickRole(r as Role)}>
@@ -163,7 +169,10 @@ export default function NewRequest() {
           </div>
         </div>
         <div className="row">
-          <span className="muted small" style={{ width: 70 }}>類型</span>
+          <span className="form-label">
+            類型
+            <Hint label="類型">Feature 是新功能，Bug 是問題回報，Task 是釐清或小工作。會決定預設的拷問方式和開出的票種。</Hint>
+          </span>
           <div className="seg">
             {(meta?.request_types ?? ["feature", "bug", "task"]).map((t) => (
               <button key={t} className={type === t ? "on" : ""} onClick={() => setType(t as RequestType)}>
@@ -172,55 +181,83 @@ export default function NewRequest() {
             ))}
           </div>
         </div>
-        <div className="row">
-          <span className="muted small" style={{ width: 70 }}>To</span>
-          <div className="seg">
-            {(meta?.roles ?? ["pm", "fae", "rd"]).map((r) => (
-              <button key={r} className={audience === r ? "on" : ""} onClick={() => setAudience(r as Role)}>
-                {ROLE_LABEL[r as Role]}
-                {r === defaultAudience ? "（預設）" : ""}
-              </button>
-            ))}
+        <details className="advanced">
+          <summary>
+            進階設定
+            <span className="muted small">
+              To {ROLE_LABEL[audience]}
+              {assignee.trim() ? `（指派 ${assignee.trim().split("@")[0]}）` : ""} ·{" "}
+              {meta?.templates.find((t) => t.id === template)?.label ?? template} ·{" "}
+              {meta?.question_budgets.find((b) => b.id === budget)?.label ?? budget}
+            </span>
+          </summary>
+          <div className="stack">
+            <div className="row">
+              <span className="form-label">
+                To
+                <Hint label="To">
+                  Spec 寫給誰看。小精靈會照對方需要知道的事來問、來寫。PM、FAE 預設給 RD；RD 預設給 PM。
+                </Hint>
+              </span>
+              <div className="seg">
+                {(meta?.roles ?? ["pm", "fae", "rd"]).map((r) => (
+                  <button key={r} className={audience === r ? "on" : ""} onClick={() => setAudience(r as Role)}>
+                    {ROLE_LABEL[r as Role]}
+                    {r === defaultAudience ? "（預設）" : ""}
+                  </button>
+                ))}
+              </div>
+              <PersonInput
+                label="指派給"
+                placeholder="指派給（選填），輸入名字或 email 搜尋"
+                value={assignee}
+                onChange={setAssignee}
+                style={{ flex: 1, minWidth: 220, width: "auto" }}
+              />
+            </div>
+            <p className="muted small" style={{ margin: "-6px 0 0 96px" }}>
+              小精靈會照 {ROLE_LABEL[audience]} 需要知道的事來問、來寫 Spec；填了指派對象，開 ADO 票時會設成 Assigned To。
+            </p>
+            <div className="row">
+              <span className="form-label">
+                拷問方式
+                <Hint label="拷問方式">
+                  grill-with-docs：一輪輪問到清楚；快速 bug 回報：只問重現步驟和影響；釐清：把你的理解拆成 Premise 請對方確認。
+                </Hint>
+              </span>
+              <select value={template} onChange={(e) => setTemplate(e.target.value)} style={{ width: "auto" }}>
+                {meta?.templates.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.label}
+                    {t.id === defaultTemplate ? "（預設）" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="row">
+              <span className="form-label">
+                要問多細
+                <Hint label="要問多細">
+                  最多問幾題。選「不問」會直接寫 Spec；題數到了就結束，沒問到的寫成 Assumption。過程中隨時可以按「夠了，產出 Spec」。
+                </Hint>
+              </span>
+              <div className="seg">
+                {meta?.question_budgets.map((b) => (
+                  <button key={b.id} className={budget === b.id ? "on" : ""} onClick={() => setBudget(b.id)}>
+                    {b.label}（{b.limit === 0 ? "直接寫 Spec" : b.limit ? `最多 ${b.limit} 題` : "不限題數"}）
+                  </button>
+                ))}
+              </div>
+              <span className="muted small">
+                {budget === "none"
+                  ? "不出題：小精靈查完資料直接寫 Spec，自己做的決定都會列成 Assumption，請檢查後再開票。適合已經很清楚的小需求。"
+                  : budget === "thorough"
+                    ? "問到每個分支都清楚為止。"
+                    : "只問最關鍵的決定；沒問到的，小精靈會在 Spec 裡寫成 Assumption 或 Open Question。"}
+              </span>
+            </div>
           </div>
-          <PersonInput
-            label="指派給"
-            placeholder="指派給（選填），輸入名字或 email 搜尋"
-            value={assignee}
-            onChange={setAssignee}
-            style={{ flex: 1, minWidth: 220, width: "auto" }}
-          />
-        </div>
-        <p className="muted small" style={{ margin: "-6px 0 0 78px" }}>
-          小精靈會照 {ROLE_LABEL[audience]} 需要知道的事來問、來寫 Spec；填了指派對象，開 ADO 票時會設成 Assigned To。
-        </p>
-        <div className="row">
-          <span className="muted small" style={{ width: 70 }}>拷問方式</span>
-          <select value={template} onChange={(e) => setTemplate(e.target.value)} style={{ width: "auto" }}>
-            {meta?.templates.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.label}
-                {t.id === defaultTemplate ? "（預設）" : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="row">
-          <span className="muted small" style={{ width: 70 }}>要問多細</span>
-          <div className="seg">
-            {meta?.question_budgets.map((b) => (
-              <button key={b.id} className={budget === b.id ? "on" : ""} onClick={() => setBudget(b.id)}>
-                {b.label}（{b.limit === 0 ? "直接寫 Spec" : b.limit ? `最多 ${b.limit} 題` : "不限題數"}）
-              </button>
-            ))}
-          </div>
-          <span className="muted small">
-            {budget === "none"
-              ? "不出題：小精靈查完資料直接寫 Spec，自己做的決定都會列成 Assumption，請檢查後再開票。適合已經很清楚的小需求。"
-              : budget === "thorough"
-                ? "問到每個分支都清楚為止。"
-                : "只問最關鍵的決定；沒問到的，小精靈會在 Spec 裡寫成 Assumption 或 Open Question。"}
-          </span>
-        </div>
+        </details>
         <label className="field">
           <span>需求內容</span>
           <textarea

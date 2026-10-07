@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import Sprite from "@/components/Sprite";
 import { api, deleteConfirmText, InterviewSummary, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
 
 type Scope = "for-me" | "mine" | "all";
@@ -10,6 +11,8 @@ const SCOPES: { id: Scope; label: string }[] = [
   { id: "mine", label: "我發起的" },
   { id: "all", label: "全部" },
 ];
+
+const ONBOARDING_KEY = "sprite.onboarding.dismissed";
 
 const STATUS_BADGE: Record<InterviewSummary["status"], string> = {
   interviewing: "accent",
@@ -34,10 +37,25 @@ export default function Home() {
   const [items, setItems] = useState<InterviewSummary[] | null>(null);
   const [forMeCount, setForMeCount] = useState(0);
   const [me, setMe] = useState<string | null>(null);
+  const [adoReady, setAdoReady] = useState<boolean | null>(null);
+  const [startedOne, setStartedOne] = useState<boolean | null>(null);
+  const [dismissed, setDismissed] = useState(true); // until storage is read, so the card doesn't flash
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.me().then((m) => setMe(m.email)).catch(() => {});
+    api
+      .me()
+      .then((m) => {
+        setMe(m.email);
+        setAdoReady((m.ado.connected || m.ado.dev_fallback) && !m.ado.expired);
+      })
+      .catch(() => {});
+    api.listInterviews("mine").then((rows) => setStartedOne(rows.length > 0)).catch(() => {});
+    try {
+      setDismissed(localStorage.getItem(ONBOARDING_KEY) === "1");
+    } catch {
+      setDismissed(false);
+    }
     api.listInterviews("for-me").then((rows) => {
       setForMeCount(rows.length);
       if (rows.length) setScope("for-me");
@@ -48,6 +66,17 @@ export default function Home() {
     setItems(null);
     api.listInterviews(scope).then(setItems);
   }, [scope]);
+
+  function dismiss() {
+    setDismissed(true);
+    try {
+      localStorage.setItem(ONBOARDING_KEY, "1");
+    } catch {
+      // private window: hidden for this visit only
+    }
+  }
+
+  const showOnboarding = !dismissed && adoReady !== null && startedOne !== null && !(adoReady && startedOne);
 
   async function remove(i: InterviewSummary) {
     if (!confirm(deleteConfirmText(i))) return;
@@ -75,6 +104,42 @@ export default function Home() {
           </button>
         ))}
       </div>
+      {showOnboarding && (
+        <section className="card stack onboarding" aria-label="開始使用">
+          <div className="row" style={{ alignItems: "center" }}>
+            <Sprite pose="head" size={48} />
+            <div className="stack" style={{ gap: 2, flex: 1, minWidth: 0 }}>
+              <h2 style={{ margin: 0, fontSize: 19 }}>開始使用開票小精靈</h2>
+              <span className="muted small">
+                寫下需求 → 小精靈拷問你，把模糊的地方問清楚 → 整理成 Spec → 以你的身份開成 ADO 票。隨時都能按「夠了，產出 Spec」提早結束。
+              </span>
+            </div>
+            <button className="link small" onClick={dismiss}>
+              不再顯示
+            </button>
+          </div>
+          <ol>
+            <li className={adoReady ? "done" : ""}>
+              <span className="check" aria-hidden="true">{adoReady ? "✓" : "1"}</span>
+              <span className="what">連結 Azure DevOps（約 1 分鐘，開票時要用）</span>
+              {!adoReady && (
+                <Link href="/settings" className="btn small">
+                  前往設定
+                </Link>
+              )}
+            </li>
+            <li className={startedOne ? "done" : ""}>
+              <span className="check" aria-hidden="true">{startedOne ? "✓" : "2"}</span>
+              <span className="what">開第一筆需求（可以從範例開始）</span>
+              {!startedOne && (
+                <Link href="/new" className="btn small primary">
+                  新增需求
+                </Link>
+              )}
+            </li>
+          </ol>
+        </section>
+      )}
       {error && <div className="notice danger">{error}</div>}
       <div className="card list" style={{ padding: 0 }}>
         {items === null && <p className="muted" style={{ padding: 16 }}>載入中…</p>}
