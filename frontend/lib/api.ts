@@ -174,6 +174,7 @@ export const api = {
     request(`/questions/${qid}`, { method: "PATCH", body: json(patch) }),
   withdraw: (qid: string) => request(`/questions/${qid}/withdraw`, { method: "POST" }),
   retry: (id: string) => request(`/interviews/${id}/retry`, { method: "POST" }),
+  deleteInterview: (id: string) => request(`/interviews/${id}`, { method: "DELETE" }),
   handoff: (id: string, question_ids: string[], to_email: string, notify: boolean) =>
     request<{ id: string; link: string }>(`/interviews/${id}/handoffs`, {
       method: "POST",
@@ -200,3 +201,11 @@ export const STATUS_LABEL: Record<InterviewSummary["status"], string> = {
   decision_record: "Decision Record",
 };
 export const WORK_ITEM_TYPE: Record<RequestType, string> = { feature: "User Story", bug: "Bug", task: "Task" };
+
+/** Confirm text for deleting an Interview; an opened ADO Ticket is not touched. */
+export function deleteConfirmText(i: Pick<InterviewSummary, "title" | "ticket_id">): string {
+  return (
+    `確定要刪除「${i.title}」？\n\n題目、回答、轉交和附件都會一起刪除，無法復原。` +
+    (i.ticket_id ? `\nAzure DevOps 上的 #${i.ticket_id} 不會被刪除。` : "")
+  );
+}

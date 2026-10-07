@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, InterviewSummary, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
+import { api, deleteConfirmText, InterviewSummary, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
 
 type Scope = "for-me" | "mine" | "all";
 const SCOPES: { id: Scope; label: string }[] = [
@@ -18,12 +18,26 @@ const STATUS_BADGE: Record<InterviewSummary["status"], string> = {
   decision_record: "",
 };
 
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M4 7h16" />
+      <path d="M10 11v6M14 11v6" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M9 7V4h6v3" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [scope, setScope] = useState<Scope>("mine");
   const [items, setItems] = useState<InterviewSummary[] | null>(null);
   const [forMeCount, setForMeCount] = useState(0);
+  const [me, setMe] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    api.me().then((m) => setMe(m.email)).catch(() => {});
     api.listInterviews("for-me").then((rows) => {
       setForMeCount(rows.length);
       if (rows.length) setScope("for-me");
@@ -34,6 +48,17 @@ export default function Home() {
     setItems(null);
     api.listInterviews(scope).then(setItems);
   }, [scope]);
+
+  async function remove(i: InterviewSummary) {
+    if (!confirm(deleteConfirmText(i))) return;
+    setError(null);
+    try {
+      await api.deleteInterview(i.id);
+      setItems((rows) => rows?.filter((r) => r.id !== i.id) ?? null);
+    } catch (err) {
+      setError((err as Error).message);
+    }
+  }
 
   return (
     <div className="stack">
@@ -50,6 +75,7 @@ export default function Home() {
           </button>
         ))}
       </div>
+      {error && <div className="notice danger">{error}</div>}
       <div className="card list" style={{ padding: 0 }}>
         {items === null && <p className="muted" style={{ padding: 16 }}>載入中…</p>}
         {items?.length === 0 && (
@@ -58,7 +84,8 @@ export default function Home() {
           </p>
         )}
         {items?.map((i) => (
-          <Link key={i.id} href={`/interviews/${i.id}`} className="item">
+          <div key={i.id} className="item-row">
+          <Link href={`/interviews/${i.id}`} className="item">
             <span className={`badge ${STATUS_BADGE[i.status]}`}>{STATUS_LABEL[i.status]}</span>
             <span className="badge">{TYPE_LABEL[i.request_type]}</span>
             <span className="title">{i.title}</span>
@@ -67,6 +94,12 @@ export default function Home() {
               {ROLE_LABEL[i.role]} · {i.requester.split("@")[0]} · {new Date(i.created_at).toLocaleDateString("zh-TW")}
             </span>
           </Link>
+          {me === i.requester && (
+            <button className="icon danger" aria-label={`刪除 ${i.title}`} title="刪除" onClick={() => remove(i)}>
+              <TrashIcon />
+            </button>
+          )}
+          </div>
         ))}
       </div>
     </div>

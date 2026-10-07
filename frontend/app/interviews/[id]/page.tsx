@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { api, InterviewDetail, Me, Meta, Question, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { api, deleteConfirmText, InterviewDetail, Me, Meta, Question, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
 import QuestionCard from "@/components/QuestionCard";
 import Markdown from "@/components/Markdown";
 import SpecPanel from "@/components/SpecPanel";
@@ -41,6 +42,7 @@ function byRound(questions: Question[]): [number, Question[]][] {
 
 export default function InterviewPage({ params }: { params: { id: string } }) {
   const { id } = params;
+  const router = useRouter();
   const [d, setD] = useState<InterviewDetail | null>(null);
   const [me, setMe] = useState<Me | null>(null);
   const [meta, setMeta] = useState<Meta | null>(null);
@@ -114,6 +116,14 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     });
   }
 
+  async function doDelete() {
+    if (!d || !confirm(deleteConfirmText({ title: d.title, ticket_id: d.ticket_id }))) return;
+    await run(async () => {
+      await api.deleteInterview(id);
+      router.push("/");
+    });
+  }
+
   async function doFinish() {
     if (pending.length && !confirm(`還有 ${pending.length} 題未回答，會列為 Open Questions。確定要產出 Spec？`)) return;
     await run(() => api.finish(id));
@@ -127,6 +137,17 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           <span className="badge">{TYPE_LABEL[d.request_type]}</span>
           <span className="badge">{ROLE_LABEL[d.role]}</span>
           <span className="muted small">Template · {d.template_label}</span>
+          <span className="spacer" />
+          {d.is_requester && (
+            <button
+              className="link danger small"
+              disabled={busy || d.engine_busy}
+              title={d.engine_busy ? "小精靈處理完才能刪除" : undefined}
+              onClick={doDelete}
+            >
+              刪除
+            </button>
+          )}
         </div>
         <h1>{d.title}</h1>
         <span className="muted small">

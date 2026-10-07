@@ -9,6 +9,7 @@ import asyncio
 import logging
 import mimetypes
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -411,6 +412,18 @@ async def edit_question(session: AsyncSession, question_id: str, user: str, titl
     if options is not None:
         q.options = [o for o in options if o.strip()]
     await session.commit()
+
+
+async def delete_interview(deps: Deps, session: AsyncSession, interview_id: str, user: str) -> None:
+    """Remove an Interview with its questions, Handoffs and attachment files. An ADO Ticket stays in ADO."""
+    interview = await load_interview(session, interview_id)
+    if interview.requester_email != user:
+        raise FlowError("只有 Requester 可以刪除", 403)
+    if interview.engine_busy:
+        raise FlowError("小精靈還在處理這個 Interview，請等它完成再刪除", 409)
+    await session.delete(interview)
+    await session.commit()
+    shutil.rmtree(deps.settings.upload_dir / interview_id, ignore_errors=True)
 
 
 async def withdraw_question(deps: Deps, session: AsyncSession, question_id: str, user: str) -> None:

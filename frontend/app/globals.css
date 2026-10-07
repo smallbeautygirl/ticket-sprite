@@ -113,6 +113,7 @@ button.primary, .btn.primary { background: var(--accent); border-color: var(--ac
 button.primary:hover:not(:disabled) { filter: brightness(1.08); background: var(--accent); }
 button.danger { color: var(--danger); }
 button.link { border: none; background: none; color: var(--accent); padding: 2px 4px; }
+button.link.danger { color: var(--danger); }
 
 input[type="text"], input[type="email"], input[type="password"], input[type="date"], input[type="number"], select, textarea {
   font: inherit; color: var(--text); background: var(--surface);
@@ -175,6 +176,14 @@ label.field > :not(span) { color: var(--text); }
 
 .list a.item { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid var(--border); color: var(--text); }
 .list a.item:last-child { border-bottom: none; }
+.list .item-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
+.list .item-row:last-child { border-bottom: none; }
+.list .item-row a.item { flex: 1; min-width: 0; border-bottom: none; }
+.list .item-row button.icon { margin-right: 8px; opacity: 0; }
+.list .item-row:hover button.icon, .list .item-row button.icon:focus-visible { opacity: 1; }
+@media (hover: none) { .list .item-row button.icon { opacity: 1; } }
+button.icon { width: 36px; height: 36px; padding: 0; justify-content: center; border-color: transparent; background: none; color: var(--muted); }
+button.icon.danger:hover:not(:disabled) { color: var(--danger); background: var(--danger-soft); }
 .list a.item:hover { background: var(--surface-2); text-decoration: none; }
 .list .title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 

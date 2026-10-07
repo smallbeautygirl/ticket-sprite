@@ -382,3 +382,41 @@ async def test_unknown_question_budget_is_rejected(vivian):
     r = await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
                                                    "question_budget": "huge"})
     assert r.status_code == 400
+
+
+async def test_requester_deletes_interview_with_its_files(app, deps, vivian, kevin):
+    r = await vivian.post(
+        "/api/interviews",
+        data={"role": "pm", "request_type": "feature", "text": "x"},
+        files=[("files", ("notes.txt", b"notes", "text/plain"))],
+    )
+    iid = r.json()["id"]
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    q = _pending(d)[0]
+    await vivian.post(f"/api/interviews/{iid}/handoffs", json={"question_ids": [q["id"]], "to_email": "kevin@linkervision.com"})
+    assert (deps.settings.upload_dir / iid).is_dir()
+
+    assert (await kevin.delete(f"/api/interviews/{iid}")).status_code == 403
+    assert (await vivian.delete(f"/api/interviews/{iid}")).status_code == 200
+
+    assert (await vivian.get(f"/api/interviews/{iid}")).status_code == 404
+    assert iid not in [i["id"] for i in (await vivian.get("/api/interviews?scope=mine")).json()]
+    assert not (deps.settings.upload_dir / iid).exists()
+
+
+async def test_cannot_delete_while_the_engine_works(app, deps, vivian, llm):
+    gate = asyncio.Event()
+    next_round = llm.next_round
+
+    async def slow_round(ctx, knowledge, progress=None):
+        await gate.wait()
+        return await next_round(ctx, knowledge, progress)
+
+    llm.next_round = slow_round
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
+    r = await vivian.delete(f"/api/interviews/{iid}")
+    assert r.status_code == 409
+    gate.set()
+    await deps.drain()
+    assert (await vivian.delete(f"/api/interviews/{iid}")).status_code == 200

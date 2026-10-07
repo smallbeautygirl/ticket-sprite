@@ -470,6 +470,20 @@ async def withdraw_question(
     return {"ok": True}
 
 
+@router.delete("/interviews/{interview_id}")
+async def delete_interview(
+    interview_id: str,
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+    deps: Deps = Depends(get_deps),
+):
+    try:
+        await services.delete_interview(deps, session, interview_id, email)
+    except FlowError as exc:
+        raise _flow(exc) from exc
+    return {"ok": True}
+
+
 @router.post("/interviews/{interview_id}/retry")
 async def retry(
     interview_id: str,
