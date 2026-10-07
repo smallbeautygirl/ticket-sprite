@@ -53,6 +53,8 @@ function Requests() {
   const [startedOne, setStartedOne] = useState<boolean | null>(null);
   const [dismissed, setDismissed] = useState(true); // until storage is read, so the card doesn't flash
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0); // bumped by 重試
 
   useEffect(() => {
     api
@@ -68,16 +70,27 @@ function Requests() {
     } catch {
       setDismissed(false);
     }
-    api.listInterviews("for-me").then((rows) => {
-      setForMeCount(rows.length);
-      if (rows.length) setScope("for-me");
-    });
+    api
+      .listInterviews("for-me")
+      .then((rows) => {
+        setForMeCount(rows.length);
+        if (rows.length) setScope("for-me");
+      })
+      .catch(() => {}); // the list below reports the failure
   }, []);
 
   useEffect(() => {
+    let current = true; // a slow answer for the previous tab must not overwrite this one
     setItems(null);
-    api.listInterviews(scope).then(setItems);
-  }, [scope]);
+    setLoadError(null);
+    api
+      .listInterviews(scope)
+      .then((rows) => current && setItems(rows))
+      .catch((err) => current && setLoadError((err as Error).message));
+    return () => {
+      current = false;
+    };
+  }, [scope, attempt]);
 
   function dismiss() {
     if (guide) router.replace("/");
@@ -110,9 +123,9 @@ function Requests() {
         <span className="spacer" />
         <Link href="/new" className="btn primary">＋ 新增需求</Link>
       </div>
-      <div className="seg">
+      <div className="seg" role="group" aria-label="篩選需求">
         {SCOPES.map((s) => (
-          <button key={s.id} className={scope === s.id ? "on" : ""} onClick={() => setScope(s.id)}>
+          <button key={s.id} className={scope === s.id ? "on" : ""} aria-pressed={scope === s.id} onClick={() => setScope(s.id)}>
             {s.label}
             {s.id === "for-me" && forMeCount > 0 && ` (${forMeCount})`}
           </button>
@@ -154,9 +167,17 @@ function Requests() {
           </ol>
         </section>
       )}
-      {error && <div className="notice danger">{error}</div>}
+      {error && <div className="notice danger" role="alert">{error}</div>}
       <div className="card list" style={{ padding: 0 }}>
-        {items === null && <p className="muted" style={{ padding: 16 }}>載入中…</p>}
+        {items === null &&
+          (loadError ? (
+            <div className="row" role="alert" style={{ padding: 16 }}>
+              <span>讀不到需求列表：{loadError}</span>
+              <button onClick={() => setAttempt((n) => n + 1)}>重試</button>
+            </div>
+          ) : (
+            <p className="muted" style={{ padding: 16 }}>載入中…</p>
+          ))}
         {items?.length === 0 && (
           <p className="muted" style={{ padding: 16 }}>
             {scope === "for-me" ? "目前沒有轉交給你的題目。" : "還沒有需求。"}

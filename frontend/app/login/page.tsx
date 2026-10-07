@@ -77,7 +77,7 @@ function LoginForm() {
               </button>
             </div>
           </label>
-          {error && <div className="notice danger">{error}</div>}
+          {error && <div className="notice danger" role="alert">{error}</div>}
           <button className="primary" disabled={busy} type="submit" style={{ justifyContent: "center" }}>
             {busy ? "登入中…" : "登入"}
           </button>

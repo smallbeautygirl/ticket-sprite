@@ -52,6 +52,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [handoffNotify, setHandoffNotify] = useState(true);
   const [handoffLink, setHandoffLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(() => {
     api
@@ -74,13 +75,21 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     if (!d) return;
     const frozen = d.status === "ticketed" || d.status === "decision_record";
     if (frozen && !d.engine_busy) return; // a ticketed Spec can still be regenerated
-    const t = setInterval(load, d.engine_busy ? 2000 : 15000);
+    const t = setInterval(() => {
+      if (!document.hidden) load(); // a background tab catches up when it comes back
+    }, d.engine_busy ? 2000 : 15000);
     return () => clearInterval(t);
   }, [d, load]);
 
+  useEffect(() => {
+    const onVisible = () => !document.hidden && load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [load]);
+
   const rounds = useMemo(() => (d ? byRound(d.questions) : []), [d]);
 
-  if (error && !d) return <div className="notice danger">{error}</div>;
+  if (error && !d) return <div className="notice danger" role="alert">{error}</div>;
   if (!d) return <p className="muted">載入中…</p>;
 
   const interviewing = d.status === "interviewing";
@@ -112,8 +121,30 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     await run(async () => {
       const res = await api.handoff(id, Array.from(selected), handoffTo, handoffNotify);
       setHandoffLink(res.link);
+      setCopied(false);
       setSelected(new Set());
     });
+  }
+
+  // navigator.clipboard only exists on https or localhost; the VM is served over plain http
+  async function copyLink(text: string) {
+    try {
+      if (navigator.clipboard) await navigator.clipboard.writeText(text);
+      else {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        const ok = document.execCommand("copy");
+        area.remove();
+        if (!ok) throw new Error();
+      }
+      setCopied(true);
+    } catch {
+      setError("無法自動複製，請手動選取上面的連結。");
+    }
   }
 
   async function doDelete() {
@@ -242,7 +273,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
         </>
       )}
       {d.engine_error && (
-        <div className="notice danger row">
+        <div className="notice danger row" role="alert">
           {d.engine_error}
           <span className="spacer" />
           {d.is_requester && <button onClick={() => run(() => api.retry(id))}>重試</button>}
@@ -283,13 +314,13 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       {handoffLink && (
         <div className="notice ok row">
           已轉交。連結：<code>{handoffLink}</code>
-          <button className="link" onClick={() => navigator.clipboard.writeText(handoffLink)}>
-            複製
+          <button className="link" onClick={() => copyLink(handoffLink)}>
+            {copied ? "已複製" : "複製"}
           </button>
         </div>
       )}
 
-      {error && <div className="notice danger">{error}</div>}
+      {error && <div className="notice danger" role="alert">{error}</div>}
 
       {d.status !== "interviewing" && <SpecPanel d={d} me={me} meta={meta} onChanged={load} />}
 
@@ -300,6 +331,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
               <span>轉交 {selected.size} 題給</span>
               <input
                 type="email"
+                aria-label="轉交對象的 email"
                 placeholder="同事的 email，例如 kevin@linkervision.com"
                 value={handoffTo}
                 onChange={(e) => setHandoffTo(e.target.value)}

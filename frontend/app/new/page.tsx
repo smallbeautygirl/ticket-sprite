@@ -68,6 +68,8 @@ const EXAMPLES: Example[] = [
   },
 ];
 
+const MAX_FILE_MB = 20; // matches the backend limit
+
 // RD mostly clarifies existing work; PM and FAE usually bring a feature
 const DEFAULT_TYPE: Record<Role, RequestType> = { pm: "feature", fae: "feature", rd: "task" };
 
@@ -86,13 +88,17 @@ export default function NewRequest() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.meta().then((m) => {
-      setMeta(m);
-      setBudget(m.default_question_budget);
-    });
-    api.me().then((me) => {
-      pickRole(me.default_role);
-    });
+    api
+      .meta()
+      .then((m) => {
+        setMeta(m);
+        setBudget(m.default_question_budget);
+      })
+      .catch((err) => setError(`讀不到表單選項（${(err as Error).message}），會使用預設的拷問方式與題數。`));
+    api
+      .me()
+      .then((me) => pickRole(me.default_role))
+      .catch(() => {}); // keep PM; the form still works
   }, []);
 
   function pickRole(r: Role) {
@@ -114,6 +120,8 @@ export default function NewRequest() {
   const defaultAudience = meta?.default_audience[role] ?? (role === "rd" ? "pm" : "rd");
   useEffect(() => setAudience(defaultAudience), [defaultAudience]);
   useEffect(() => setTemplate(defaultTemplate), [defaultTemplate]);
+
+  const tooBig = files.filter((f) => f.size > MAX_FILE_MB * 1024 * 1024);
 
   async function submit() {
     setBusy(true);
@@ -160,9 +168,9 @@ export default function NewRequest() {
               你這次的身份。決定預設的拷問方式，以及小精靈能看的資料：PM、FAE 只看文件和 spec；RD 可以看程式碼。不影響權限。
             </Hint>
           </span>
-          <div className="seg">
+          <div className="seg" role="group" aria-label="Role">
             {(meta?.roles ?? ["pm", "fae", "rd"]).map((r) => (
-              <button key={r} className={role === r ? "on" : ""} onClick={() => pickRole(r as Role)}>
+              <button key={r} className={role === r ? "on" : ""} aria-pressed={role === r} onClick={() => pickRole(r as Role)}>
                 {ROLE_LABEL[r as Role]}
               </button>
             ))}
@@ -173,9 +181,9 @@ export default function NewRequest() {
             類型
             <Hint label="類型">Feature 是新功能，Bug 是問題回報，Task 是釐清或小工作。會決定預設的拷問方式和開出的票種。</Hint>
           </span>
-          <div className="seg">
+          <div className="seg" role="group" aria-label="類型">
             {(meta?.request_types ?? ["feature", "bug", "task"]).map((t) => (
-              <button key={t} className={type === t ? "on" : ""} onClick={() => setType(t as RequestType)}>
+              <button key={t} className={type === t ? "on" : ""} aria-pressed={type === t} onClick={() => setType(t as RequestType)}>
                 {TYPE_LABEL[t as RequestType]}
               </button>
             ))}
@@ -199,9 +207,9 @@ export default function NewRequest() {
                   Spec 寫給誰看。小精靈會照對方需要知道的事來問、來寫。PM、FAE 預設給 RD；RD 預設給 PM。
                 </Hint>
               </span>
-              <div className="seg">
+              <div className="seg" role="group" aria-label="To（Spec 寫給誰看）">
                 {(meta?.roles ?? ["pm", "fae", "rd"]).map((r) => (
-                  <button key={r} className={audience === r ? "on" : ""} onClick={() => setAudience(r as Role)}>
+                  <button key={r} className={audience === r ? "on" : ""} aria-pressed={audience === r} onClick={() => setAudience(r as Role)}>
                     {ROLE_LABEL[r as Role]}
                     {r === defaultAudience ? "（預設）" : ""}
                   </button>
@@ -241,9 +249,9 @@ export default function NewRequest() {
                   最多問幾題。選「不問」會直接寫 Spec；題數到了就結束，沒問到的寫成 Assumption。過程中隨時可以按「夠了，產出 Spec」。
                 </Hint>
               </span>
-              <div className="seg">
+              <div className="seg" role="group" aria-label="要問多細">
                 {meta?.question_budgets.map((b) => (
-                  <button key={b.id} className={budget === b.id ? "on" : ""} onClick={() => setBudget(b.id)}>
+                  <button key={b.id} className={budget === b.id ? "on" : ""} aria-pressed={budget === b.id} onClick={() => setBudget(b.id)}>
                     {b.label}（{b.limit === 0 ? "直接寫 Spec" : b.limit ? `最多 ${b.limit} 題` : "不限題數"}）
                   </button>
                 ))}
@@ -274,18 +282,25 @@ export default function NewRequest() {
             multiple
             accept="image/*,.pdf,.txt,.log,.md,.csv,.json,.yaml,.yml"
             onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            aria-describedby={tooBig.length ? "too-big" : undefined}
           />
         </label>
+        {tooBig.length > 0 && (
+          <div id="too-big" className="notice warn small" role="alert">
+            超過 {MAX_FILE_MB}MB，請壓縮或拆開後重新選擇：
+            {tooBig.map((f) => `${f.name}（${(f.size / 1024 / 1024).toFixed(1)}MB）`).join("、")}
+          </div>
+        )}
         {role === "rd" && (
           <div className="notice info small">
             RD 釐清流程：AI 會把內容拆成 <b>Premise</b>（請對方確認的理解）和問題，先對照程式碼驗證 Premise，
             你檢查修改後再轉交給 PM 回答。
           </div>
         )}
-        {error && <div className="notice danger">{error}</div>}
+        {error && <div className="notice danger" role="alert">{error}</div>}
         <div className="row">
           <span className="spacer" />
-          <button className="primary" disabled={busy || (!text.trim() && files.length === 0)} onClick={submit}>
+          <button className="primary" disabled={busy || tooBig.length > 0 || (!text.trim() && files.length === 0)} onClick={submit}>
             {busy ? "建立中…" : budget === "none" ? "產出 Spec" : "開始拷問"}
           </button>
         </div>

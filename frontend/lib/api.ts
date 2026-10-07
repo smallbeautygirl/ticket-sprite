@@ -142,18 +142,35 @@ export class ApiError extends Error {
   }
 }
 
+function fallbackMessage(status: number): string {
+  if (status === 403) return "你沒有權限做這件事。";
+  if (status === 404) return "找不到這筆資料，可能已被刪除。";
+  if (status === 413) return "檔案太大，單檔請在 20MB 內。";
+  if (status === 429) return "操作太頻繁，請稍等一下再試。";
+  if (status === 502 || status === 503 || status === 504) return `小精靈的伺服器暫時沒有回應（${status}），請稍後再試。`;
+  if (status >= 500) return `伺服器錯誤（${status}），請稍後再試。`;
+  return `請求失敗（${status}）`;
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (init.body && !(init.body instanceof FormData)) headers["Content-Type"] = "application/json";
-  const res = await fetch(`/api${path}`, { ...init, headers: { ...headers, ...(init.headers as object) } });
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, { ...init, headers: { ...headers, ...(init.headers as object) } });
+  } catch {
+    throw new ApiError(0, "連不上小精靈的伺服器，請檢查網路或 VPN 後再試一次。");
+  }
   if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/auth/")) {
     window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
   }
   if (!res.ok) {
-    let msg = res.status >= 500 ? `伺服器錯誤（${res.status}）` : res.statusText;
+    let msg = fallbackMessage(res.status);
     try {
       const data = await res.json();
-      msg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+      if (typeof data.detail === "string") msg = data.detail;
+      // FastAPI validation errors: [{loc, msg, type}, ...]
+      else if (Array.isArray(data.detail) && data.detail[0]?.msg) msg = `輸入有誤：${data.detail[0].msg}`;
     } catch {
       /* not JSON */
     }

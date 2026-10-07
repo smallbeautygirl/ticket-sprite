@@ -19,7 +19,9 @@ export default function Thinking({ title, subtitle, progress }: { title: string;
   const looked = progress ? progress.read_count + progress.searches : 0;
   const latest = progress?.reads[progress.reads.length - 1];
   return (
-    <div className="card thinking" aria-live="polite">
+    <div className="card thinking">
+      {/* Announce the phase once; the ticking timer and file list would be read out every second */}
+      <span className="sr-only" role="status">{title}</span>
       <Sprite pose="reading" size={72} />
       <div className="stack" style={{ gap: 8, minWidth: 0, flex: 1 }}>
         <div className="stack" style={{ gap: 2 }}>

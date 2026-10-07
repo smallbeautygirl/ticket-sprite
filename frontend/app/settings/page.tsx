@@ -10,10 +10,18 @@ export default function Settings() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [roleError, setRoleError] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.me().then(setMe);
-  }, []);
+  function loadMe() {
+    setLoadError(null);
+    api
+      .me()
+      .then(setMe)
+      .catch((err) => setLoadError((err as Error).message));
+  }
+
+  useEffect(loadMe, []);
 
   async function connect() {
     setBusy(true);
@@ -32,12 +40,43 @@ export default function Settings() {
   }
 
   async function disconnect() {
-    const ado = await api.disconnectAdo();
-    setMe((m) => (m ? { ...m, ado } : m));
-    setOk(null);
+    if (!confirm("取消連結後就不能以你的身份開票，要再開票時需重新貼上 PAT。確定取消連結？")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const ado = await api.disconnectAdo();
+      setMe((m) => (m ? { ...m, ado } : m));
+      setOk(null);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
   }
 
-  if (!me) return <p className="muted">載入中…</p>;
+  async function pickRole(r: Role) {
+    if (!me || me.default_role === r) return;
+    const before = me.default_role;
+    setMe({ ...me, default_role: r }); // optimistic; rolled back below if the save fails
+    setRoleError(null);
+    try {
+      await api.setDefaultRole(r);
+    } catch (err) {
+      setMe((m) => (m ? { ...m, default_role: before } : m));
+      setRoleError((err as Error).message);
+    }
+  }
+
+  if (!me)
+    return loadError ? (
+      <div className="notice danger row" role="alert">
+        讀不到你的設定：{loadError}
+        <span className="spacer" />
+        <button onClick={loadMe}>重試</button>
+      </div>
+    ) : (
+      <p className="muted">載入中…</p>
+    );
   const ado = me.ado;
 
   return (
@@ -46,15 +85,13 @@ export default function Settings() {
 
       <h2>預設 Role</h2>
       <div className="card row">
-        <div className="seg">
+        <div className="seg" role="group" aria-label="預設 Role">
           {(["pm", "fae", "rd"] as Role[]).map((r) => (
             <button
               key={r}
               className={me.default_role === r ? "on" : ""}
-              onClick={async () => {
-                await api.setDefaultRole(r);
-                setMe({ ...me, default_role: r });
-              }}
+              aria-pressed={me.default_role === r}
+              onClick={() => pickRole(r)}
             >
               {ROLE_LABEL[r]}
             </button>
@@ -62,6 +99,7 @@ export default function Settings() {
         </div>
         <span className="muted small">新增需求時預設選這個 Role。</span>
       </div>
+      {roleError && <div className="notice danger small" role="alert">沒有存到預設 Role：{roleError}</div>}
 
       <h2>Azure DevOps 連結</h2>
       <div className="card stack">
@@ -102,14 +140,14 @@ export default function Settings() {
             <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
           </label>
         </div>
-        {error && <div className="notice danger">{error}</div>}
+        {error && <div className="notice danger" role="alert">{error}</div>}
         {ok && <div className="notice ok">{ok}</div>}
         <div className="row">
           <button className="primary" disabled={busy || pat.trim().length < 10} onClick={connect}>
             {busy ? "驗證中…" : "驗證並連結"}
           </button>
           {ado.connected && (
-            <button className="danger" onClick={disconnect}>
+            <button className="danger" disabled={busy} onClick={disconnect}>
               取消連結
             </button>
           )}

@@ -74,8 +74,8 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
 
       {editing ? (
         <div className="stack">
-          <input type="text" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
-          <textarea value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
+          <input type="text" aria-label="題目標題" value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+          <textarea aria-label="題目內容" value={draft.body} onChange={(e) => setDraft({ ...draft, body: e.target.value })} />
           <label className="field">
             <span>選項（一行一個）</span>
             <textarea value={draft.options} onChange={(e) => setDraft({ ...draft, options: e.target.value })} />
@@ -210,7 +210,7 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
           </button>
         </div>
       )}
-      {error && <div className="notice danger small">{error}</div>}
+      {error && <div className="notice danger small" role="alert">{error}</div>}
     </div>
   );
 }

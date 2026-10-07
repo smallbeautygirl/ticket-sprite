@@ -55,6 +55,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   const [parentId, setParentId] = useState<number | null>(d.default_parent_id);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<WorkItem[]>([]);
+  const [lookup, setLookup] = useState<"idle" | "busy" | "done">("idle"); // the free search for a Parent
   const [boardParents, setBoardParents] = useState<WorkItem[]>([]);
   const [searching, setSearching] = useState(false); // the free search for a Parent off the board
   const [priority, setPriority] = useState<number>(d.suggested_priority ?? 2);
@@ -87,11 +88,15 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   if (parent && !parentOptions.some((w) => w.id === parent.id)) parentOptions.unshift(parent);
 
   async function search() {
-    if (!query.trim()) return;
+    if (!query.trim() || lookup === "busy") return;
+    setLookup("busy");
+    setError(null);
     try {
       setResults(await api.searchWorkItems(query));
+      setLookup("done");
     } catch (err) {
       setError((err as Error).message);
+      setLookup("idle");
     }
   }
 
@@ -177,7 +182,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
               <span className="badge warn">{d.status === "ticketed" ? "尚未更新到 ADO" : "尚未採用"}</span>
             </div>
             <Markdown text={d.spec_revision} />
-            {error && <div className="notice danger">{error}</div>}
+            {error && <div className="notice danger" role="alert">{error}</div>}
             <div className="row">
               <button className="primary" disabled={busy} onClick={applyRevision}>
                 {busy ? "更新中…" : d.status === "ticketed" ? `更新 ADO #${d.ticket_id} 的描述` : "採用新版"}
@@ -294,11 +299,13 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
                   <input
                     type="text"
                     autoFocus
+                    aria-label="搜尋 Parent work item"
                     placeholder="輸入 work item id 或標題關鍵字"
                     value={query}
                     onChange={(e) => {
                       setQuery(e.target.value);
-                      if (!e.target.value.trim()) setResults([]);
+                      setResults([]);
+                      setLookup("idle");
                     }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") search();
@@ -309,7 +316,9 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
                     }}
                     style={{ flex: 1, width: "auto" }}
                   />
-                  <button onClick={search}>搜尋</button>
+                  <button onClick={search} disabled={lookup === "busy" || !query.trim()}>
+                    {lookup === "busy" ? "搜尋中…" : "搜尋"}
+                  </button>
                   <button
                     className="link small"
                     onClick={() => {
@@ -320,15 +329,19 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
                     取消
                   </button>
                 </div>
+                {lookup === "done" && results.length === 0 && (
+                  <span className="muted small" role="status">
+                    找不到符合「{query.trim()}」的 work item，換個關鍵字或直接輸入 id 試試。
+                  </span>
+                )}
                 {results.length > 0 && (
                   <div className="card list" style={{ padding: 0 }}>
                     {results.map((w) => (
-                      <a
+                      <button
                         key={w.id}
+                        type="button"
                         className="item"
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
+                        onClick={() => {
                           setParentId(w.id);
                           setParent(w);
                           setResults([]);
@@ -340,7 +353,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
                           #{w.id} {w.title}
                         </span>
                         <span className="muted small">{w.state}</span>
-                      </a>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -349,9 +362,9 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
           </div>
           <div className="row">
             <span className="muted small">票的類型</span>
-            <div className="seg">
+            <div className="seg" role="group" aria-label="票的類型">
               {(meta?.work_item_types ?? ["Task", "User Story", "Bug"]).map((t) => (
-                <button key={t} className={ticketType === t ? "on" : ""} onClick={() => setWiType(t)}>
+                <button key={t} className={ticketType === t ? "on" : ""} aria-pressed={ticketType === t} onClick={() => setWiType(t)}>
                   {t}
                 </button>
               ))}
@@ -405,7 +418,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
           ) : (
             <span className="small muted">Teams 通知未設定（需要 TEAMS_WEBHOOK_URL），開票後不會發通知。</span>
           )}
-          {error && <div className="notice danger">{error}</div>}
+          {error && <div className="notice danger" role="alert">{error}</div>}
           <div className="row">
             <button
               className="primary"
