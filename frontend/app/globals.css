@@ -242,3 +242,14 @@ label.field > :not(span) { color: var(--text); }
   .grid-2 { grid-template-columns: 1fr !important; }
 }
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.term-conflict {
+  background: var(--warn-soft); color: var(--warn); border-radius: var(--radius-sm);
+  padding: 6px 10px; line-height: 1.6; overflow-wrap: anywhere; min-width: 0;
+}
+.term-conflict code { background: transparent; padding: 0; }
+
+.body .markdown p { margin: 0 0 8px; }
+.body .markdown p:last-child { margin-bottom: 0; }
+.body .markdown ul, .body .markdown ol { margin: 4px 0 8px; padding-left: 20px; }
+.markdown { overflow-wrap: anywhere; }

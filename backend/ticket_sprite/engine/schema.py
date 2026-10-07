@@ -11,7 +11,7 @@ _TERM = {
     "properties": {
         "term": {"type": "string"},
         "meaning": {"type": "string", "description": "What the Requester means by it"},
-        "conflict": {**_NULLABLE_STR, "description": "Which glossary term it collides with, if any"},
+        "conflict": {**_NULLABLE_STR, "description": "The glossary term(s) it collides with and why, 繁體中文, one or two sentences; start with the term name, not with 與; null if none"},
     },
     "required": ["term", "meaning", "conflict"],
     "additionalProperties": False,

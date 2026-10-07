@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, Question } from "@/lib/api";
+import Markdown from "./Markdown";
 
 const RESOLVED_LABEL: Record<string, { text: string; cls: string }> = {
   answered: { text: "回答", cls: "" },
@@ -99,7 +100,7 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
           </div>
         </div>
       ) : (
-        <div className="pre body">{isPremise ? <>「{q.body}」</> : q.body}</div>
+        <div className="body">{isPremise ? <>「<Markdown inline text={q.body} />」</> : <Markdown text={q.body} />}</div>
       )}
 
       {q.ai_note && (
@@ -108,15 +109,15 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
             <circle cx="11" cy="11" r="7" />
             <path d="M20 20l-3.5-3.5" />
           </svg>
-          <span className="pre">{q.ai_note}</span>
+          <span className="pre"><Markdown inline text={q.ai_note} /></span>
         </div>
       )}
 
       {pending && q.recommendation && (
         <div className="rec">
           <b>小精靈建議：</b>
-          {q.recommendation}
-          {q.rationale && <div className="muted small">{q.rationale}</div>}
+          <Markdown inline text={q.recommendation} />
+          {q.rationale && <div className="muted small"><Markdown inline text={q.rationale} /></div>}
         </div>
       )}
 

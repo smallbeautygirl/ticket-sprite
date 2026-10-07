@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, InterviewDetail, Me, Meta, Question, ROLE_LABEL, STATUS_LABEL, TYPE_LABEL } from "@/lib/api";
 import QuestionCard from "@/components/QuestionCard";
+import Markdown from "@/components/Markdown";
 import SpecPanel from "@/components/SpecPanel";
 import Sprite from "@/components/Sprite";
 import Thinking from "@/components/Thinking";
@@ -158,7 +159,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       {d.summary && (
         <div className="notice info stack" style={{ gap: 2 }}>
           <b className="small" style={{ color: "var(--accent-strong)" }}>小精靈目前的理解</b>
-          <span>{d.summary}</span>
+          <span><Markdown inline text={d.summary} /></span>
         </div>
       )}
 
@@ -369,8 +370,12 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
             {d.new_terms.map((t) => (
               <div key={t.term} className="stack" style={{ gap: 2, padding: "8px 12px", borderRadius: "var(--radius-sm)", background: "var(--surface-2)" }}>
                 <b>{t.term}</b>
-                <span className="small" style={{ color: "var(--text-2)" }}>{t.meaning}</span>
-                {t.conflict && <span className="badge warn" style={{ alignSelf: "flex-start" }}>與 {t.conflict} 衝突</span>}
+                <span className="small" style={{ color: "var(--text-2)" }}><Markdown inline text={t.meaning} /></span>
+                {t.conflict && (
+                  <div className="term-conflict small">
+                    <b>⚠ 詞彙衝突</b> <Markdown inline text={t.conflict.replace(/^與\s*/, "")} />
+                  </div>
+                )}
               </div>
             ))}
           </section>

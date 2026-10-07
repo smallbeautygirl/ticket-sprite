@@ -75,6 +75,7 @@ def settings(tmp_path) -> Settings:
     (product / "docs" / "adr" / "0001-x.md").write_text("# ADR\n", encoding="utf-8")
     (product / "app" / "gate.py").write_text("def ensemble_gate():\n    return True\n", encoding="utf-8")
     return Settings(
+        _env_file=None,
         database_url=f"sqlite+aiosqlite:///{tmp_path / 'test.db'}",
         auth_mode="dev",
         session_secret="test-secret",
