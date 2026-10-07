@@ -7,6 +7,7 @@ Entra delegated OAuth later without touching callers.
 from __future__ import annotations
 
 import base64
+import logging
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -17,6 +18,8 @@ from .config import Settings
 from .models import RequestType, User
 
 API_VERSION = "7.1"
+
+log = logging.getLogger(__name__)
 
 WORK_ITEM_TYPES = ["Task", "User Story", "Bug"]
 # The default Parent is a User Story, so a feature lands as a Task under it unless the Requester picks otherwise
@@ -248,6 +251,20 @@ class AdoClient:
             key=lambda p: (-p.assigned, p.display_name),
         )
 
+    async def _post_work_item(self, c: httpx.AsyncClient, wi_type: str, ops: list[dict]) -> httpx.Response:
+        return await c.post(
+            f"{self._project_url}/_apis/wit/workitems/${quote(wi_type)}",
+            params={"api-version": API_VERSION},
+            json=ops,
+            headers={"Content-Type": "application/json-patch+json"},
+        )
+
+    async def _existing_tags(self, c: httpx.AsyncClient) -> set[str]:
+        resp = await c.get(f"{self._project_url}/_apis/wit/tags", params={"api-version": API_VERSION})
+        if resp.status_code >= 400:
+            return set()
+        return {(t.get("name") or "").lower() for t in resp.json().get("value") or []}
+
     async def upload_attachment(self, filename: str, data: bytes) -> str:
         async with self._client() as c:
             resp = await c.post(
@@ -303,12 +320,16 @@ class AdoClient:
             ops.append({"op": "add", "path": "/relations/-", "value": {"rel": "AttachedFile", "url": url}})
 
         async with self._client() as c:
-            resp = await c.post(
-                f"{self._project_url}/_apis/wit/workitems/${quote(wi_type)}",
-                params={"api-version": API_VERSION},
-                json=ops,
-                headers={"Content-Type": "application/json-patch+json"},
-            )
+            resp = await self._post_work_item(c, wi_type, ops)
+            if resp.status_code == 403 and "TF401289" in resp.text and tags:
+                # Not allowed to create tag definitions: keep only the tags the project already has
+                known = await self._existing_tags(c)
+                kept = [t for t in tags if t.lower() in known]
+                log.info("no permission to create tags; dropped %s", [t for t in tags if t not in kept])
+                ops = [op for op in ops if op["path"] != "/fields/System.Tags"]
+                if kept:
+                    ops.append({"op": "add", "path": "/fields/System.Tags", "value": "; ".join(kept)})
+                resp = await self._post_work_item(c, wi_type, ops)
         self._raise_for(resp)
         item_id = resp.json()["id"]
         return CreatedWorkItem(id=item_id, url=self.work_item_web_url(item_id))

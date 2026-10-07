@@ -29,6 +29,9 @@ class FakeAdo:
         4: {"displayName": "Build Service", "uniqueName": "Build Service (linkerengineer)"},
     })
     wiql_calls: int = 0
+    # tag definitions the project already has, and whether this user may create new ones
+    existing_tags: set[str] = field(default_factory=lambda: {"ticket-sprite", "role:pm"})
+    can_create_tags: bool = True
 
     def _authorized(self, request: httpx.Request) -> bool:
         import base64
@@ -68,7 +71,15 @@ class FakeAdo:
                     for i in ids
                 ]},
             )
+        if path.endswith("/_apis/wit/tags") and request.method == "GET":
+            return httpx.Response(200, json={"value": [{"name": t} for t in sorted(self.existing_tags)]})
         if "/_apis/wit/workitems/$" in path and request.method == "POST":
+            ops = json.loads(request.content)
+            tags = next((op["value"] for op in ops if op["path"] == "/fields/System.Tags"), "")
+            new = [t for t in tags.split("; ") if t and t.lower() not in self.existing_tags]
+            if new and not self.can_create_tags:
+                return httpx.Response(403, json={
+                    "message": "TF401289: The current user does not have permissions to create tags."})
             self.next_id += 1
             wi_type = path.rsplit("$", 1)[1]
             self.created.append({"type": wi_type, "ops": json.loads(request.content)})

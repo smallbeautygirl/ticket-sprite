@@ -497,3 +497,12 @@ async def test_unknown_work_item_type_is_rejected(app, deps, vivian, fake_ado):
     iid = await _spec_ready(vivian, deps, "feature")
     r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "work_item_type": "Epic"})
     assert r.status_code == 400 and not fake_ado.created
+
+
+async def test_ticket_keeps_only_existing_tags_without_tag_permission(app, deps, vivian, fake_ado):
+    fake_ado.can_create_tags = False
+    iid = await _spec_ready(vivian, deps, "feature")
+    r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t"})
+    assert r.status_code == 200, r.text
+    fields = {op["path"]: op["value"] for op in fake_ado.created[-1]["ops"]}
+    assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm"  # to:rd is new, dropped
