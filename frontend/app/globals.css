@@ -137,6 +137,7 @@ label.field > :not(span) { color: var(--text); }
 .badge.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
 .badge.warn { background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .badge.danger { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.badge.trial { font-family: "Noto Sans TC", sans-serif; font-size: 11px; background: var(--warn-soft); color: var(--warn); border-color: transparent; }
 .badge.premise { background: var(--premise-soft); color: var(--premise); border-color: transparent; }
 
 .notice { border-radius: var(--radius-sm); padding: 10px 14px; font-size: 14px; }

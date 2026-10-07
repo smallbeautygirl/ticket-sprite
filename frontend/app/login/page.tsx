@@ -39,7 +39,9 @@ function LoginForm() {
         <div className="row" style={{ gap: 14, alignItems: "center", flexWrap: "nowrap" }}>
           <Sprite pose="head" size={64} />
           <div>
-          <h1>開票小精靈</h1>
+          <h1 className="row" style={{ gap: 8 }}>
+            開票小精靈 <span className="badge trial">試用版</span>
+          </h1>
           <p className="muted small" style={{ margin: 0 }}>使用 Observ 帳號登入</p>
           </div>
         </div>

@@ -33,6 +33,7 @@ export default function TopBar() {
       <Link href="/" className="brand">
         <Sprite pose="logo" size={28} />
         開票小精靈
+        <span className="badge trial">試用版</span>
       </Link>
       <nav>
         <Link href="/" className={pathname === "/" || pathname.startsWith("/interviews") ? "on" : ""}>需求</Link>
