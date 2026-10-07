@@ -28,6 +28,8 @@ export interface Meta {
   default_audience: Record<Role, Role>;
   default_parent_id: number;
   severities: string[];
+  work_item_types: string[];
+  default_work_item_type: Record<RequestType, string>;
   auth_mode: "observ" | "dev";
   single_user: boolean;
   teams_enabled: boolean;
@@ -42,6 +44,7 @@ export interface InterviewSummary {
   title: string;
   ticket_id: number | null;
   ticket_url: string | null;
+  ticket_type: string | null;
   created_at: string;
   updated_at: string | null;
 }
@@ -203,6 +206,7 @@ export const api = {
       severity: string | null;
       notify: boolean;
       assignee: string | null;
+      work_item_type: string;
     },
   ) => request<{ ticket_id: number; ticket_url: string }>(`/interviews/${id}/ticket`, { method: "POST", body: json(body) }),
   decisionRecord: (id: string, title: string) =>
@@ -217,7 +221,8 @@ export const STATUS_LABEL: Record<InterviewSummary["status"], string> = {
   ticketed: "已開票",
   decision_record: "Decision Record",
 };
-export const WORK_ITEM_TYPE: Record<RequestType, string> = { feature: "User Story", bug: "Bug", task: "Task" };
+// Fallback while /meta loads; the backend's default_work_item_type is the source of truth
+export const WORK_ITEM_TYPE: Record<RequestType, string> = { feature: "Task", bug: "Bug", task: "Task" };
 
 /** Confirm text for deleting an Interview; an opened ADO Ticket is not touched. */
 export function deleteConfirmText(i: Pick<InterviewSummary, "title" | "ticket_id">): string {

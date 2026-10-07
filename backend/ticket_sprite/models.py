@@ -110,6 +110,7 @@ class Interview(Base):
 
     ticket_id: Mapped[int | None] = mapped_column(Integer)
     ticket_url: Mapped[str | None] = mapped_column(String(500))
+    ticket_type: Mapped[str | None] = mapped_column(String(32))  # ADO work item type the Ticket was opened as
     parent_id: Mapped[int | None] = mapped_column(Integer)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

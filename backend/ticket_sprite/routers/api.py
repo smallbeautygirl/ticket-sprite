@@ -13,7 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import services
-from ..ado import SEVERITIES, AdoClient, AdoCredentialMissing, AdoCredentialProvider, AdoError, PatCipher, pat_auth_header
+from ..ado import DEFAULT_WORK_ITEM_TYPE, SEVERITIES, WORK_ITEM_TYPES, AdoClient, AdoCredentialMissing, AdoCredentialProvider, AdoError, PatCipher, pat_auth_header
 from ..auth import SESSION_COOKIE, LoginFailed, ObservAuthClient, ObservIdentity, current_email, issue_session
 from ..config import Settings, get_settings
 from ..db import get_session
@@ -254,6 +254,8 @@ async def meta(settings: Settings = Depends(get_settings)):
         "default_audience": {r.value: a.value for r, a in DEFAULT_AUDIENCE.items()},
         "default_parent_id": settings.ado_default_parent_id,
         "severities": SEVERITIES,
+        "work_item_types": WORK_ITEM_TYPES,
+        "default_work_item_type": {t.value: w for t, w in DEFAULT_WORK_ITEM_TYPE.items()},
         "auth_mode": settings.auth_mode,
         "single_user": settings.single_user,
         "teams_enabled": bool(settings.teams_webhook_url),
@@ -300,6 +302,7 @@ def _summary_out(i: Interview) -> dict:
         "title": i.title or i.request_text[:60],
         "ticket_id": i.ticket_id,
         "ticket_url": i.ticket_url,
+        "ticket_type": i.ticket_type,
         "created_at": i.created_at.isoformat(),
         "updated_at": i.updated_at.isoformat() if i.updated_at else None,
     }
@@ -610,6 +613,7 @@ class TicketIn(BaseModel):
     severity: str | None = None
     notify: bool = True
     assignee: str | None = None
+    work_item_type: str | None = None
 
 
 @router.post("/interviews/{interview_id}/ticket")
@@ -629,6 +633,7 @@ async def create_ticket(
             services.TicketRequest(
                 title=body.title, parent_id=body.parent_id, priority=body.priority,
                 severity=body.severity, notify=body.notify, assignee=body.assignee,
+                work_item_type=body.work_item_type,
             ),
         )
     except FlowError as exc:

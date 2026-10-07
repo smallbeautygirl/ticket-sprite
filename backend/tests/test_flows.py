@@ -82,7 +82,8 @@ async def test_pm_feature_flow_to_ticket(app, deps, vivian, fake_ado, notifier, 
 
     r = await vivian.post(
         f"/api/interviews/{iid}/ticket",
-        json={"title": "開放標注", "parent_id": 41152, "priority": 2, "assignee": " Kevin@LinkerVision.com "},
+        json={"title": "開放標注", "parent_id": 41152, "priority": 2, "assignee": " Kevin@LinkerVision.com ",
+              "work_item_type": "User Story"},
     )
     assert r.status_code == 200, r.text
     assert r.json()["ticket_url"].endswith("/_workitems/edit/50001")
@@ -471,3 +472,28 @@ async def test_assignee_suggestions_come_from_recent_ado_assignees(app, vivian, 
     calls = fake_ado.wiql_calls
     await vivian.get("/api/ado/people")
     assert fake_ado.wiql_calls == calls  # cached
+
+
+async def _spec_ready(vivian, deps, request_type):
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": request_type, "text": "x",
+                                                      "question_budget": "none"})).json()["id"]
+    await deps.drain()
+    await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890", "expires_on": "2027-10-01"})
+    return iid
+
+
+async def test_feature_opens_as_task_by_default(app, deps, vivian, fake_ado):
+    iid = await _spec_ready(vivian, deps, "feature")
+    r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "severity": "2 - High"})
+    assert r.status_code == 200, r.text
+    created = fake_ado.created[-1]
+    fields = {op["path"]: op["value"] for op in created["ops"]}
+    assert created["type"] == "Task"
+    assert "/fields/Microsoft.VSTS.Common.Severity" not in fields  # severity only on a Bug
+    assert (await _detail(vivian, iid))["ticket_type"] == "Task"
+
+
+async def test_unknown_work_item_type_is_rejected(app, deps, vivian, fake_ado):
+    iid = await _spec_ready(vivian, deps, "feature")
+    r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "work_item_type": "Epic"})
+    assert r.status_code == 400 and not fake_ado.created

@@ -46,6 +46,8 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   const [priority, setPriority] = useState<number>(d.suggested_priority ?? 2);
   const [severity, setSeverity] = useState<string>(d.suggested_severity ?? "3 - Medium");
   const [assignee, setAssignee] = useState(d.assignee ?? "");
+  const [wiType, setWiType] = useState<string | null>(null); // null = the default for this Request Type
+  const ticketType = wiType ?? meta?.default_work_item_type[d.request_type] ?? WORK_ITEM_TYPE[d.request_type];
   const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -96,7 +98,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
       <div className="stack">
         {d.status === "ticketed" && d.ticket_url && (
           <div className="notice ok">
-            已開票：
+            已開成 {d.ticket_type ?? "ADO 票"}：
             <a href={d.ticket_url} target="_blank" rel="noreferrer">
               #{d.ticket_id} {d.title}
             </a>
@@ -157,7 +159,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
 
       {d.is_requester && (
         <div className="card stack">
-          <h2 style={{ margin: 0 }}>開票（{WORK_ITEM_TYPE[d.request_type]}）</h2>
+          <h2 style={{ margin: 0 }}>開票（{ticketType}）</h2>
           {!adoReady && (
             <div className="notice warn">
               還沒連結 Azure DevOps，<Link href="/settings">先到設定頁連結</Link>（約 1 分鐘）。
@@ -230,6 +232,23 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
               </div>
             )}
           </div>
+          <div className="row">
+            <span className="muted small">票的類型</span>
+            <div className="seg">
+              {(meta?.work_item_types ?? ["Task", "User Story", "Bug"]).map((t) => (
+                <button key={t} className={ticketType === t ? "on" : ""} onClick={() => setWiType(t)}>
+                  {t}
+                </button>
+              ))}
+            </div>
+            <span className="muted small">
+              {ticketType === "Task"
+                ? "一般需求開 Task，掛在 Parent（User Story）底下。"
+                : ticketType === "User Story"
+                  ? "完整的新功能才開 User Story，Parent 應該選 Feature。"
+                  : "Bug 會多帶 Severity 和 Repro Steps。"}
+            </span>
+          </div>
           <label className="field">
             <span>Assigned To（選填）</span>
             <PersonInput
@@ -250,7 +269,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
               </select>
               <span className="small muted">{PRIORITY_HINT[priority]}</span>
             </label>
-            {d.request_type === "bug" && (
+            {ticketType === "Bug" && (
               <label className="field">
                 <span>Severity（AI 建議 {d.suggested_severity ?? "-"}）</span>
                 <select value={severity} onChange={(e) => setSeverity(e.target.value)}>
@@ -283,9 +302,10 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
                     title,
                     parent_id: parentId,
                     priority,
-                    severity: d.request_type === "bug" ? severity : null,
+                    severity: ticketType === "Bug" ? severity : null,
                     notify,
                     assignee: assignee.trim() || null,
+                    work_item_type: ticketType,
                   });
                 })
               }

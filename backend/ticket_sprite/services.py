@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from sqlalchemy.orm import selectinload
 
-from .ado import SEVERITIES, AdoClient, AdoCredentialProvider
+from .ado import DEFAULT_WORK_ITEM_TYPE, SEVERITIES, WORK_ITEM_TYPES, AdoClient, AdoCredentialProvider
 from .config import Settings
 from .engine.llm import AttachmentInput, EngineError, InterviewContext, InterviewLLM, QAItem
 from .engine.progress import EngineProgress
@@ -694,6 +694,7 @@ class TicketRequest:
     severity: str | None
     notify: bool
     assignee: str | None = None
+    work_item_type: str | None = None  # None = DEFAULT_WORK_ITEM_TYPE for the Request Type
 
 
 async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, user: str, req: TicketRequest) -> Interview:
@@ -704,6 +705,9 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
     if req.priority is not None and req.priority not in (1, 2, 3, 4):
         raise FlowError("Priority 必須是 1-4")
     assignee = _assignee(req.assignee)
+    wi_type = req.work_item_type or DEFAULT_WORK_ITEM_TYPE[RequestType(interview.request_type)]
+    if wi_type not in WORK_ITEM_TYPES:
+        raise FlowError(f"不支援的票種：{wi_type}")
 
     requester = await session.get(User, user)
     ado = AdoClient(deps.settings, AdoCredentialProvider(deps.settings).auth_header(requester), deps.ado_transport)
@@ -715,13 +719,13 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
             continue
         attachment_urls.append(await ado.upload_attachment(a.filename, data))
     created = await ado.create_work_item(
-        request_type=RequestType(interview.request_type),
+        work_item_type=wi_type,
         title=title,
         description_html=spec_html(deps.settings, interview),
         parent_id=req.parent_id,
         tags=["ticket-sprite", f"role:{interview.role}", f"to:{audience_of(interview)}"],
         priority=req.priority,
-        severity=req.severity if interview.request_type == RequestType.BUG else None,
+        severity=req.severity if wi_type == "Bug" else None,
         attachment_urls=attachment_urls,
         assigned_to=assignee,
     )
@@ -729,6 +733,7 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
     interview.assignee_email = assignee
     interview.ticket_id = created.id
     interview.ticket_url = created.url
+    interview.ticket_type = wi_type
     interview.parent_id = req.parent_id
     interview.status = InterviewStatus.TICKETED
     interview.frozen_at = utcnow()
@@ -737,7 +742,7 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
     if req.notify:
         await deps.notifier.post(
             f"開票小精靈：#{created.id} {title}",
-            [f"{user} 開了一張 {interview.request_type}（role: {interview.role}）"
+            [f"{user} 開了一張 {wi_type}（role: {interview.role}）"
              + (f"，指派給 {assignee}" if assignee else "")
              + (f"，Parent #{req.parent_id}" if req.parent_id else "")],
             link=("在 Azure DevOps 開啟", created.url),

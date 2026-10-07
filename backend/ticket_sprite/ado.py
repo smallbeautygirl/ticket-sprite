@@ -18,8 +18,10 @@ from .models import RequestType, User
 
 API_VERSION = "7.1"
 
-WORK_ITEM_TYPE = {
-    RequestType.FEATURE: "User Story",
+WORK_ITEM_TYPES = ["Task", "User Story", "Bug"]
+# The default Parent is a User Story, so a feature lands as a Task under it unless the Requester picks otherwise
+DEFAULT_WORK_ITEM_TYPE = {
+    RequestType.FEATURE: "Task",
     RequestType.BUG: "Bug",
     RequestType.TASK: "Task",
 }
@@ -260,7 +262,7 @@ class AdoClient:
     async def create_work_item(
         self,
         *,
-        request_type: RequestType,
+        work_item_type: str,
         title: str,
         description_html: str,
         parent_id: int | None,
@@ -270,14 +272,14 @@ class AdoClient:
         attachment_urls: list[str],
         assigned_to: str | None = None,
     ) -> CreatedWorkItem:
-        wi_type = WORK_ITEM_TYPE[request_type]
+        wi_type = work_item_type
         ops: list[dict] = [
             {"op": "add", "path": "/fields/System.Title", "value": title},
             {"op": "add", "path": "/fields/System.Description", "value": description_html},
             {"op": "add", "path": "/fields/System.AreaPath", "value": self._s.ado_area_path},
             {"op": "add", "path": "/fields/System.Tags", "value": "; ".join(tags)},
         ]
-        if request_type is RequestType.BUG:
+        if wi_type == "Bug":
             # Bug forms show Repro Steps rather than Description
             ops.append({"op": "add", "path": "/fields/Microsoft.VSTS.TCM.ReproSteps", "value": description_html})
             if severity:
