@@ -11,7 +11,22 @@ const H = 200;
 const FACE = "#fff6e5"; // Sprite palette (see Sprite.tsx)
 const WING = "#d9eef0";
 
-type Thing = { kind: "word" | "fog"; x: number; y: number; r: number; text?: string; taken?: boolean };
+// w: a word's label width; the label is drawn from x + r - 2 and counts as part of the word
+type Thing = { kind: "word" | "fog"; x: number; y: number; r: number; text?: string; w?: number; taken?: boolean };
+
+const FLY_R = 9;
+const LABEL_HALF_H = 8;
+const LABEL_REACH = 12; // as forgiving as the glow: 8 + 12 = the glow's 11 + 9
+
+/** Whether the firefly at (x, y) touches a thing: fog by its puff, a word by its glow or its label. */
+export function touches(fly: { x: number; y: number }, t: Thing): boolean {
+  if (Math.hypot(t.x - fly.x, t.y - fly.y) < t.r + FLY_R) return true;
+  if (t.kind !== "word" || !t.w) return false;
+  const left = t.x + t.r - 2;
+  const nx = Math.max(left, Math.min(fly.x, left + t.w));
+  const ny = Math.max(t.y - LABEL_HALF_H, Math.min(fly.y, t.y + LABEL_HALF_H));
+  return Math.hypot(nx - fly.x, ny - fly.y) < LABEL_REACH;
+}
 
 function readBest(): number {
   try {
@@ -57,6 +72,7 @@ export default function FireflyGame({ onClose }: { onClose: () => void }) {
     const SKY = token("--sprite-ink", "#1c2b22");
     const GLOW = token("--glow", "#f4c542");
 
+    const FONT = "500 13px 'Noto Sans TC', sans-serif";
     let width = 0;
     const resize = () => {
       const dpr = window.devicePixelRatio || 1;
@@ -108,7 +124,7 @@ export default function FireflyGame({ onClose }: { onClose: () => void }) {
           ctx.arc(t.x, t.y, t.r, 0, Math.PI * 2);
           ctx.fill();
           ctx.fillStyle = GLOW;
-          ctx.font = "500 13px 'Noto Sans TC', sans-serif";
+          ctx.font = FONT;
           ctx.textBaseline = "middle";
           ctx.fillText(t.text ?? "", t.x + t.r - 2, t.y);
         }
@@ -154,7 +170,9 @@ export default function FireflyGame({ onClose }: { onClose: () => void }) {
         nextWord -= dt;
         nextFog -= dt;
         if (nextWord <= 0) {
-          things.push({ kind: "word", x: width + 40, y: 28 + Math.random() * (H - 56), r: 11, text: WORDS[wordIndex++ % WORDS.length] });
+          const text = WORDS[wordIndex++ % WORDS.length];
+          ctx.font = FONT;
+          things.push({ kind: "word", x: width + 40, y: 28 + Math.random() * (H - 56), r: 11, text, w: ctx.measureText(text).width });
           nextWord = 0.9 + Math.random() * 0.8;
         }
         if (nextFog <= 0) {
@@ -163,7 +181,7 @@ export default function FireflyGame({ onClose }: { onClose: () => void }) {
         }
         for (const t of things) t.x -= speed * (t.kind === "fog" ? 1.1 : 1) * dt;
         for (const t of things) {
-          if (Math.hypot(t.x - fly.x, t.y - fly.y) >= t.r + 9) continue;
+          if (!touches(fly, t)) continue;
           if (t.kind === "word") {
             t.taken = true;
             got += 1;
