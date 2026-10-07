@@ -243,7 +243,7 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
           <input type="text" value={title} disabled={!d.is_requester} onChange={(e) => setTitle(e.target.value)} />
         </label>
         {editing ? (
-          <textarea rows={24} value={markdown} onChange={(e) => setMarkdown(e.target.value)} style={{ fontFamily: "ui-monospace, monospace", fontSize: 13 }} />
+          <textarea rows={24} value={markdown} onChange={(e) => setMarkdown(e.target.value)} style={{ fontFamily: "var(--font-mono)", fontSize: 13 }} />
         ) : (
           <Markdown text={markdown} />
         )}
