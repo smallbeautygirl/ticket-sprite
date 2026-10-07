@@ -67,6 +67,8 @@ class Deps:
     tasks: set[asyncio.Task] = field(default_factory=set)
     # interview id → what the engine is doing; present only while it runs
     progress: dict[str, EngineProgress] = field(default_factory=dict)
+    # recent ADO assignees for the Assignee picker: (fetched at, people)
+    people_cache: tuple[float, list] | None = None
 
     def spawn(self, coro) -> asyncio.Task:
         task = asyncio.create_task(coro)

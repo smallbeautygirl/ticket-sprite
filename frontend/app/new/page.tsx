@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import PersonInput from "@/components/PersonInput";
 import { api, Meta, RequestType, Role, ROLE_LABEL, TYPE_LABEL } from "@/lib/api";
 
 const PLACEHOLDER: Record<Role, string> = {
@@ -181,12 +182,11 @@ export default function NewRequest() {
               </button>
             ))}
           </div>
-          <input
-            type="email"
-            aria-label="指派給"
-            placeholder="指派給（選填），例如 kevin@linkervision.com"
+          <PersonInput
+            label="指派給"
+            placeholder="指派給（選填），輸入名字或 email 搜尋"
             value={assignee}
-            onChange={(e) => setAssignee(e.target.value)}
+            onChange={setAssignee}
             style={{ flex: 1, minWidth: 220, width: "auto" }}
           />
         </div>

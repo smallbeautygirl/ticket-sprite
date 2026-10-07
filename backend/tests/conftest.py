@@ -21,6 +21,14 @@ class FakeAdo:
     created: list[dict] = field(default_factory=list)
     uploads: list[str] = field(default_factory=list)
     next_id: int = 50000
+    # work item id → System.AssignedTo, answered for the recent-assignees query
+    assigned: dict[int, dict] = field(default_factory=lambda: {
+        1: {"displayName": "Kevin Lin", "uniqueName": "Kevin@LinkerVision.com"},
+        2: {"displayName": "Kevin Lin", "uniqueName": "kevin@linkervision.com"},
+        3: {"displayName": "Froggy Hong", "uniqueName": "froggy@linkervision.com"},
+        4: {"displayName": "Build Service", "uniqueName": "Build Service (linkerengineer)"},
+    })
+    wiql_calls: int = 0
 
     def _authorized(self, request: httpx.Request) -> bool:
         import base64
@@ -42,9 +50,16 @@ class FakeAdo:
             self.uploads.append(name)
             return httpx.Response(201, json={"url": f"https://dev.azure.com/att/{name}"})
         if path.endswith("/_apis/wit/wiql"):
+            self.wiql_calls += 1
+            if "[System.AssignedTo] <> ''" in json.loads(request.content)["query"]:
+                return httpx.Response(200, json={"workItems": [{"id": i} for i in self.assigned]})
             return httpx.Response(200, json={"workItems": [{"id": 41152}]})
         if path.endswith("/_apis/wit/workitems") and request.method == "GET":
             ids = [int(i) for i in request.url.params["ids"].split(",")]
+            if request.url.params.get("fields") == "System.AssignedTo":
+                return httpx.Response(200, json={"value": [
+                    {"id": i, "fields": {"System.AssignedTo": self.assigned[i]}} for i in ids
+                ]})
             return httpx.Response(
                 200,
                 json={"value": [

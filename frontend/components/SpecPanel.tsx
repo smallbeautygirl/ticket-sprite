@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, InterviewDetail, Me, Meta, WORK_ITEM_TYPE, WorkItem } from "@/lib/api";
 import Markdown from "./Markdown";
+import PersonInput from "./PersonInput";
 import Thinking from "./Thinking";
 
 interface Props {
@@ -218,11 +219,10 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
           </div>
           <label className="field">
             <span>Assigned To（選填）</span>
-            <input
-              type="email"
-              placeholder="例如 kevin@linkervision.com；留空則不指派"
+            <PersonInput
               value={assignee}
-              onChange={(e) => setAssignee(e.target.value)}
+              onChange={setAssignee}
+              placeholder="輸入名字或 email 搜尋；留空則不指派"
             />
           </label>
           <div className="grid-2">

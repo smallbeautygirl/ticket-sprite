@@ -83,6 +83,12 @@ export interface NewTerm {
   conflict: string | null;
 }
 
+export interface Person {
+  display_name: string;
+  email: string;
+  assigned: number;
+}
+
 export interface EngineProgress {
   started_at: string;
   reads: string[];
@@ -164,6 +170,7 @@ export const api = {
     request<AdoStatus>("/me/ado", { method: "PUT", body: json({ pat, expires_on }) }),
   disconnectAdo: () => request<AdoStatus>("/me/ado", { method: "DELETE" }),
   meta: () => request<Meta>("/meta"),
+  adoPeople: () => request<Person[]>("/ado/people"),
   searchWorkItems: (q: string) => request<WorkItem[]>(`/ado/work-items?q=${encodeURIComponent(q)}`),
 
   listInterviews: (scope: "all" | "mine" | "for-me") => request<InterviewSummary[]>(`/interviews?scope=${scope}`),

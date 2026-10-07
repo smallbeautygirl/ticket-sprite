@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -209,6 +210,33 @@ async def search_work_items(
     except AdoError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
     return [i.__dict__ for i in items]
+
+
+PEOPLE_CACHE_SECONDS = 3600
+
+
+@router.get("/ado/people")
+async def ado_people(
+    request: Request,
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    deps: Deps = Depends(get_deps),
+):
+    """Assignee suggestions: everyone assigned work in the project lately (shared across users, cached)."""
+    cached = deps.people_cache
+    if cached and time.monotonic() - cached[0] < PEOPLE_CACHE_SECONDS:
+        return cached[1]
+    ado = await _ado_for(request, session, email, settings)
+    try:
+        people = await ado.recent_assignees()
+    except AdoCredentialMissing as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AdoError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    out = [p.__dict__ for p in people]
+    deps.people_cache = (time.monotonic(), out)
+    return out
 
 
 # ---------------------------------------------------------------- meta

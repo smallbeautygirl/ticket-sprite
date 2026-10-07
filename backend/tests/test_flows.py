@@ -456,3 +456,18 @@ async def test_no_questions_goes_straight_to_a_spec(app, deps, vivian, llm):
     assert d["status"] == "spec_draft" and d["spec_markdown"] and not d["questions"]
     assert [kind for kind, _ in llm.calls] == ["spec"]  # no round was asked
     assert "skip the interview" in spec_prompt(llm.calls[0][1])
+
+
+async def test_assignee_suggestions_come_from_recent_ado_assignees(app, vivian, fake_ado):
+    assert (await vivian.get("/api/ado/people")).status_code == 409  # not connected to ADO yet
+    await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890", "expires_on": "2027-10-01"})
+
+    people = (await vivian.get("/api/ado/people")).json()
+    assert [(p["email"], p["assigned"]) for p in people] == [
+        ("kevin@linkervision.com", 2), ("froggy@linkervision.com", 1),
+    ]  # same person under two spellings is merged; service accounts without an email are dropped
+    assert people[0]["display_name"] == "Kevin Lin"
+
+    calls = fake_ado.wiql_calls
+    await vivian.get("/api/ado/people")
+    assert fake_ado.wiql_calls == calls  # cached

@@ -93,6 +93,13 @@ class WorkItemSummary:
 
 
 @dataclass(frozen=True)
+class Person:
+    display_name: str
+    email: str
+    assigned: int  # work items assigned to them in the window, for ranking
+
+
+@dataclass(frozen=True)
 class CreatedWorkItem:
     id: int
     url: str
@@ -193,6 +200,51 @@ class AdoClient:
         self._raise_for(resp)
         ids = [w["id"] for w in resp.json().get("workItems", [])][:limit]
         return await self.get_work_items(ids)
+
+    async def recent_assignees(self, days: int = 180, scan: int = 400) -> list[Person]:
+        """People assigned work items in the project lately, most assigned first.
+
+        Stands in for an identity search, which needs a PAT scope (Identity: Read) beyond Work Items.
+        """
+        wiql = (
+            "SELECT [System.Id] FROM WorkItems "
+            "WHERE [System.TeamProject] = @project "
+            "AND [System.AssignedTo] <> '' "
+            f"AND [System.ChangedDate] >= @today - {int(days)} "
+            "ORDER BY [System.ChangedDate] DESC"
+        )
+        counts: dict[str, int] = {}
+        names: dict[str, str] = {}
+        async with self._client() as c:
+            resp = await c.post(
+                f"{self._project_url}/_apis/wit/wiql",
+                params={"$top": scan, "api-version": API_VERSION},
+                json={"query": wiql},
+            )
+            self._raise_for(resp)
+            ids = [w["id"] for w in resp.json().get("workItems", [])][:scan]
+            for start in range(0, len(ids), 200):
+                resp = await c.get(
+                    f"{self._org_url}/_apis/wit/workitems",
+                    params={
+                        "ids": ",".join(str(i) for i in ids[start : start + 200]),
+                        "fields": "System.AssignedTo",
+                        "errorPolicy": "omit",
+                        "api-version": API_VERSION,
+                    },
+                )
+                self._raise_for(resp)
+                for item in resp.json().get("value") or []:
+                    who = ((item or {}).get("fields") or {}).get("System.AssignedTo") or {}
+                    email = (who.get("uniqueName") or "").lower()
+                    if "@" not in email:
+                        continue
+                    counts[email] = counts.get(email, 0) + 1
+                    names[email] = who.get("displayName") or email
+        return sorted(
+            (Person(display_name=names[e], email=e, assigned=n) for e, n in counts.items()),
+            key=lambda p: (-p.assigned, p.display_name),
+        )
 
     async def upload_attachment(self, filename: str, data: bytes) -> str:
         async with self._client() as c:
