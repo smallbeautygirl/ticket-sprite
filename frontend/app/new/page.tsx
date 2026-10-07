@@ -12,6 +12,7 @@ const PLACEHOLDER: Record<Role, string> = {
 
 interface Example {
   title: string;
+  topic: string;
   hint: string;
   role: Role;
   type: RequestType;
@@ -25,6 +26,7 @@ interface Example {
 const EXAMPLES: Example[] = [
   {
     title: "FAE 回報 bug",
+    topic: "v19 改了白名單 event id，歷史事件查不到",
     hint: "原因和影響都清楚 → 不問，直接寫 Spec",
     role: "fae",
     type: "bug",
@@ -37,6 +39,7 @@ const EXAMPLES: Example[] = [
   },
   {
     title: "RD 想問 PM",
+    topic: "歷史頁面打 tag 的用途，會不會和 Observ tag 重複",
     hint: "先寫自己的理解和疑問 → 釐清後轉交 PM",
     role: "rd",
     type: "task",
@@ -52,6 +55,7 @@ const EXAMPLES: Example[] = [
   },
   {
     title: "PM 提新功能",
+    topic: "準確度頁面可以匯出報表",
     hint: "一句話的需求 → 標準拷問補齊細節",
     role: "pm",
     type: "feature",
@@ -140,6 +144,7 @@ export default function NewRequest() {
           {EXAMPLES.map((e) => (
             <button key={e.title} className="example" onClick={() => applyExample(e)}>
               <b>{e.title}</b>
+              <span className="topic">「{e.topic}」</span>
               <span>{e.hint}</span>
             </button>
           ))}
