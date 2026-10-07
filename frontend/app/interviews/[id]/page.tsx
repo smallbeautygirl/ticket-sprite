@@ -95,6 +95,9 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const interviewing = d.status === "interviewing";
   const pending = d.questions.filter((q) => q.status === "pending");
   const myPending = pending.filter((q) => q.can_respond);
+  // In the order shown (premises first in each round): the first one still waiting for me
+  const done = interviewing && d.engine_done && !d.engine_busy;
+  const currentId = rounds.flatMap(([, qs]) => qs).find((q) => q.status === "pending" && q.can_respond)?.id;
   const live = d.questions.filter((q) => q.status !== "withdrawn");
   const tally = {
     answered: live.filter((q) => ANSWERED.has(q.status)).length,
@@ -239,6 +242,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
               q={q}
               isRequester={d.is_requester}
               selectable={selectable(q)}
+              current={q.id === currentId}
               selected={selected.has(q.id)}
               onToggle={() => {
                 const next = new Set(selected);
@@ -279,12 +283,24 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
           {d.is_requester && <button onClick={() => run(() => api.retry(id))}>重試</button>}
         </div>
       )}
-      {interviewing && d.engine_done && !d.engine_busy && (
-        <div className="notice ok with-sprite">
-          <Sprite pose="ticket" size={56} />
-          {d.question_budget !== null && d.questions_asked >= d.question_budget
-            ? `已經問滿 ${d.question_budget} 題，可以產出 Spec 了。沒問到的部分會寫成 Assumption 或 Open Question。`
-            : "小精靈認為已經問完了，可以產出 Spec。"}
+      {done && (
+        <div className="card done-card" role="status">
+          <span className="hop" aria-hidden="true">
+            <Sprite pose="ticket" size={76} />
+          </span>
+          <div className="stack" style={{ gap: 4, flex: "1 1 200px", minWidth: 0 }}>
+            <h3>{d.question_budget !== null && d.questions_asked >= d.question_budget ? "題數問滿了！" : "問完了！"}</h3>
+            <span className="small" style={{ color: "var(--text-2)" }}>
+              {d.question_budget !== null && d.questions_asked >= d.question_budget
+                ? `已經問滿 ${d.question_budget} 題，可以產出 Spec 了。沒問到的部分會寫成 Assumption 或 Open Question。`
+                : "小精靈認為已經問完了，可以產出 Spec。"}
+            </span>
+          </div>
+          {d.is_requester && (
+            <button className="primary" disabled={busy} onClick={doFinish}>
+              產出 Spec
+            </button>
+          )}
         </div>
       )}
 
@@ -324,7 +340,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
       {d.status !== "interviewing" && <SpecPanel d={d} me={me} meta={meta} onChanged={load} />}
 
-      {d.is_requester && interviewing && (
+      {d.is_requester && interviewing && (!done || selected.size > 0) && (
         <div className="sticky-bar stack">
           {selected.size > 0 ? (
             <div className="row">

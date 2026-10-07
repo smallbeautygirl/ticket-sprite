@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api, Question } from "@/lib/api";
 import Markdown from "./Markdown";
+import Sprite from "./Sprite";
 
 const RESOLVED_LABEL: Record<string, { text: string; cls: string }> = {
   answered: { text: "回答", cls: "" },
@@ -17,11 +18,12 @@ interface Props {
   isRequester: boolean;
   selectable: boolean;
   selected: boolean;
+  current?: boolean; // the one question the sprite is asking right now
   onToggle: () => void;
   onChanged: () => void;
 }
 
-export default function QuestionCard({ q, isRequester, selectable, selected, onToggle, onChanged }: Props) {
+export default function QuestionCard({ q, isRequester, selectable, selected, current = false, onToggle, onChanged }: Props) {
   const [text, setText] = useState("");
   const [correcting, setCorrecting] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -60,7 +62,12 @@ export default function QuestionCard({ q, isRequester, selectable, selected, onT
   const resolved = RESOLVED_LABEL[q.status];
 
   return (
-    <div className={`card q stack ${pending ? "pending" : "resolved"} ${q.can_respond ? "mine" : ""} ${isPremise ? "premise" : ""}`}>
+    <div className={`card q stack ${pending ? "pending" : "resolved"} ${q.can_respond ? "mine" : ""} ${isPremise ? "premise" : ""} ${current ? "current" : ""}`}>
+      {current && (
+        <span className="peek" aria-hidden="true">
+          <Sprite pose="head" size={52} />
+        </span>
+      )}
       <div className="head">
         {selectable && <input type="checkbox" checked={selected} onChange={onToggle} aria-label="選擇以轉交" />}
         <span className="ref">{q.ref}</span>

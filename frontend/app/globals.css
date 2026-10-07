@@ -173,7 +173,16 @@ label.field > :not(span) { color: var(--text); }
 }
 
 .q { padding: 18px 20px; }
-.q.pending.mine { border-color: var(--accent); box-shadow: var(--shadow-lift); }
+.q.pending.mine { border-color: var(--accent); }
+/* The question the sprite is asking right now: the one peak of the interview page */
+.q.current { position: relative; margin-top: 30px; padding: 34px 24px 22px; border-width: 2px; box-shadow: var(--shadow-lift); }
+.q.current.premise { border-top-width: 4px; }
+.q.current .peek { position: absolute; top: -32px; left: 18px; line-height: 0; animation: peek 0.6s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes peek { from { opacity: 0; transform: translateY(14px); } }
+.q.current .head h3 { font-size: 20px; }
+.q.current .body { font-size: 17px; }
+.q.current .rec { background: var(--accent-soft); border-radius: var(--radius-sm); padding: 10px 14px; }
+.q.current .rec .muted { color: var(--text-2); }
 .q.premise.pending { border-top: 4px solid var(--premise-line); }
 .q.resolved { padding: 12px 20px; }
 .q.resolved .body { color: var(--text-2); font-size: 14px; }
@@ -239,11 +248,13 @@ button.icon.danger:hover:not(:disabled) { color: var(--danger); background: var(
 .interview-aside h2, .interview-aside h3 { margin: 0; }
 
 .stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-.stepper li { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
-.stepper .bar { height: 4px; border-radius: 2px; background: var(--border-strong); }
-.stepper li.done .bar, .stepper li.now .bar { background: var(--accent); }
+.stepper li { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--muted); }
+.stepper .bar { height: 6px; border-radius: 3px; background: var(--border-strong); }
+.stepper li.done .bar { background: var(--accent); }
 .stepper li.done { color: var(--text-2); }
-.stepper li.now { color: var(--text); font-weight: 700; }
+/* Progress is the firefly's: the step in progress glows */
+.stepper li.now { color: var(--text); font-family: var(--font-display); font-size: 16px; }
+.stepper li.now .bar { background: var(--glow); box-shadow: 0 0 10px 1px var(--glow); }
 
 .form-label { width: 88px; flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--muted); }
 .hint { position: relative; display: inline-flex; }
@@ -304,7 +315,7 @@ button.example:hover:not(:disabled) { border-style: solid; border-color: var(--a
 .budget-bar span { display: block; height: 100%; background: var(--glow); border-radius: 3px; }
 .tally { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .tally > div { display: flex; flex-direction: column; padding: 10px; border-radius: var(--radius-sm); background: var(--surface-2); }
-.tally b { font-size: 22px; line-height: 1.2; }
+.tally b { font-family: var(--font-display); font-weight: 400; font-size: 28px; line-height: 1.15; }
 .tally span { font-size: 12px; color: var(--muted); }
 .tally .ok { background: var(--ok-soft); color: var(--ok); }
 .tally .ok span { color: var(--ok); }
@@ -326,7 +337,11 @@ button.example:hover:not(:disabled) { border-style: solid; border-color: var(--a
 @keyframes glow { 50% { opacity: 0.55; transform: scale(1.12); } }
 .sk { background: linear-gradient(90deg, var(--surface-2) 0%, var(--bg) 50%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; border-radius: 6px; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
-@media (prefers-reduced-motion: reduce) { .sprite-glow, .sk, .spinner { animation: none; } }
+.done-card { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; border: 2px solid var(--accent); background: var(--accent-soft); box-shadow: var(--shadow-lift); }
+.done-card h3 { font-size: 20px; }
+.done-card .hop { line-height: 0; animation: hop 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+@keyframes hop { 0% { transform: translateY(10px) rotate(-6deg); opacity: 0; } 45% { transform: translateY(-8px) rotate(3deg); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sprite-glow, .sk, .spinner, .q.current .peek, .done-card .hop { animation: none; } }
 
 .markdown { line-height: 1.7; }
 .markdown h2 { font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 4px; }

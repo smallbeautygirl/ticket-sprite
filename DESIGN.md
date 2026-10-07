@@ -217,7 +217,7 @@ components:
 - **Lift**（`box-shadow: 0 10px 28px -16px rgba(46, 125, 79, 0.45)`）：帶綠色調的浮起，只給「需要你注意」的東西：輪到你回答的題目、小精靈工作中的卡片、底部操作列、下拉選單與 tooltip。
 
 ### Named Rules
-**The Your-Turn Lift Rule.** 浮起陰影是一種狀態，不是裝飾。只有輪到使用者行動、或小精靈正在工作的元素才浮起來；其他東西一律貼在桌面上。
+**The Your-Turn Lift Rule.** 浮起陰影是一種狀態，不是裝飾。只有輪到使用者行動、或小精靈正在工作的元素才浮起來；其他東西一律貼在桌面上。同一時間只有一題浮起：小精靈正在問的那一題。
 
 ## Shapes
 
@@ -275,9 +275,18 @@ components:
 ### Thinking Card（Signature）
 小精靈工作中時顯示：reading 姿勢的小精靈、標題與已等時間，下方是讀過的檔案路徑（等寬小膠囊，最新那一個用夜林綠標示）。卡片用 Lift 陰影與深邊線浮起來，讓等待看得見。
 
+### Current Question（Signature）
+拷問頁唯一的高峰：Requester 下一題要回答的那張卡（每輪 Premise 優先）。
+- 小精靈（head 姿勢，52px）從卡片上緣探出頭，進場時往上滑 0.6 秒（ease-out）。
+- 2px 夜林綠框加 Lift 陰影；其他待回答的題目只有夜林綠框，不浮起。
+- 題目標題 20px，內容 17px；「小精靈建議」放在夜林薄霧底的區塊裡，像小精靈在說話。
+
+### Done Card（Signature）
+小精靈認為問完、或題數問滿時出現：ticket 姿勢小精靈（76px）跳一下進場，Huninn 標題「問完了！」，右側直接放「產出 Spec」。這時底部操作列收起，同一個動作只出現一次。2px 夜林綠框、夜林薄霧底、Lift 陰影。
+
 ### Stepper & Tally
-- **Stepper:** 四格、4px 高的進度條（Request → 拷問 → Spec → ADO 票），完成與目前那格填夜林綠。
-- **Tally:** 側欄三格統計（Answer／Open／Assumption），有數字時改成對應的語意薄霧色。
+- **Stepper:** 四格、6px 高的進度條（Request → 拷問 → Spec → ADO 票）。完成的格子填夜林綠；目前那格是螢火黃並發光（進度屬於小精靈，見 The One Lamp Rule），標籤改用 Huninn 16px。
+- **Tally:** 側欄三格統計（Answer／Open／Assumption），數字用 Huninn 28px，有數字時改成對應的語意薄霧色。
 
 ## Do's and Don'ts
 
