@@ -5,6 +5,7 @@ import { api, InterviewDetail, Me, Meta, Question, ROLE_LABEL, STATUS_LABEL, TYP
 import QuestionCard from "@/components/QuestionCard";
 import SpecPanel from "@/components/SpecPanel";
 import Sprite from "@/components/Sprite";
+import Thinking from "@/components/Thinking";
 
 const ANSWERED = new Set(["answered", "confirmed", "corrected"]);
 
@@ -21,16 +22,6 @@ function Stepper({ status }: { status: InterviewDetail["status"] }) {
       ))}
     </ol>
   );
-}
-
-function Elapsed({ since }: { since: number }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
-  const sec = Math.max(0, Math.floor((now - since) / 1000));
-  return <>{Math.floor(sec / 60)}:{String(sec % 60).padStart(2, "0")}</>;
 }
 
 function byRound(questions: Question[]): [number, Question[]][] {
@@ -58,7 +49,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
   const [handoffNotify, setHandoffNotify] = useState(true);
   const [handoffLink, setHandoffLink] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [busySince, setBusySince] = useState<number | null>(null);
 
   const load = useCallback(() => {
     api
@@ -84,12 +74,6 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
     const t = setInterval(load, d.engine_busy ? 2000 : 15000);
     return () => clearInterval(t);
   }, [d, load]);
-
-  // Measured from when this page first saw the engine working, not from the server
-  const engineBusy = !!d?.engine_busy;
-  useEffect(() => {
-    setBusySince(engineBusy ? Date.now() : null);
-  }, [engineBusy]);
 
   const rounds = useMemo(() => (d ? byRound(d.questions) : []), [d]);
 
@@ -213,20 +197,11 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
       {interviewing && d.engine_busy && (
         <>
-          <div className="card thinking" aria-live="polite">
-            <Sprite pose="reading" size={72} />
-            <div className="stack" style={{ gap: 2 }}>
-              <h3>小精靈正在翻書找資料…</h3>
-              <span className="muted small">
-                查閱 Knowledge Source，準備第 {(rounds.length ? rounds[rounds.length - 1][0] : 0) + 1} 輪問題
-                {busySince && (
-                  <>
-                    {" "}· 已等 <Elapsed since={busySince} />
-                  </>
-                )}
-              </span>
-            </div>
-          </div>
+          <Thinking
+            title="小精靈正在翻書找資料…"
+            subtitle={`查閱 Knowledge Source，準備第 ${(rounds.length ? rounds[rounds.length - 1][0] : 0) + 1} 輪問題`}
+            progress={d.engine_progress}
+          />
           {d.questions.length === 0 && (
             <div className="stack" aria-hidden="true">
               {[0, 1].map((i) => (

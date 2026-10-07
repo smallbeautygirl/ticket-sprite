@@ -23,6 +23,7 @@ from sqlalchemy.orm import selectinload
 from .ado import SEVERITIES, AdoClient, AdoCredentialProvider
 from .config import Settings
 from .engine.llm import AttachmentInput, EngineError, InterviewContext, InterviewLLM, QAItem
+from .engine.progress import EngineProgress
 from .engine.templates import TEMPLATES, depth_for
 from .knowledge import KnowledgeSource
 from .models import (
@@ -62,6 +63,8 @@ class Deps:
     notifier: Notifier
     ado_transport: httpx.AsyncBaseTransport | None = None
     tasks: set[asyncio.Task] = field(default_factory=set)
+    # interview id → what the engine is doing; present only while it runs
+    progress: dict[str, EngineProgress] = field(default_factory=dict)
 
     def spawn(self, coro) -> asyncio.Task:
         task = asyncio.create_task(coro)
@@ -229,8 +232,9 @@ async def advance(deps: Deps, interview_id: str) -> None:
         interview.engine_error = None
         await session.commit()
 
+        progress = deps.progress[interview.id] = EngineProgress()
         try:
-            result = await deps.llm.next_round(build_context(interview), knowledge_for(deps, interview))
+            result = await deps.llm.next_round(build_context(interview), knowledge_for(deps, interview), progress)
         except EngineError as exc:
             interview.engine_busy = False
             interview.engine_error = str(exc)
@@ -242,6 +246,8 @@ async def advance(deps: Deps, interview_id: str) -> None:
             interview.engine_error = "拷問引擎發生未預期的錯誤"
             await session.commit()
             return
+        finally:
+            deps.progress.pop(interview.id, None)
 
         by_ref = {question_ref(q): q for q in interview.questions}
         next_round = interview.round + 1
@@ -570,8 +576,9 @@ async def finish(deps: Deps, session: AsyncSession, interview_id: str, user: str
 async def generate_spec(deps: Deps, interview_id: str) -> None:
     async with deps.sessionmaker() as session:
         interview = await load_interview(session, interview_id)
+        progress = deps.progress[interview.id] = EngineProgress()
         try:
-            result = await deps.llm.write_spec(build_context(interview), knowledge_for(deps, interview))
+            result = await deps.llm.write_spec(build_context(interview), knowledge_for(deps, interview), progress)
         except EngineError as exc:
             interview.engine_error = str(exc)
         except Exception:
@@ -583,6 +590,7 @@ async def generate_spec(deps: Deps, interview_id: str) -> None:
             interview.suggested_priority = result.priority
             interview.suggested_severity = result.severity if result.severity in SEVERITIES else None
             interview.new_terms = _merge_terms(list(interview.new_terms or []), result.new_terms)
+        deps.progress.pop(interview.id, None)
         interview.engine_busy = False
         await session.commit()
 

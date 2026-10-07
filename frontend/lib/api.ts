@@ -79,6 +79,13 @@ export interface NewTerm {
   conflict: string | null;
 }
 
+export interface EngineProgress {
+  started_at: string;
+  reads: string[];
+  read_count: number;
+  searches: number;
+}
+
 export interface InterviewDetail extends InterviewSummary {
   product: string;
   template: string;
@@ -88,6 +95,7 @@ export interface InterviewDetail extends InterviewSummary {
   engine_busy: boolean;
   engine_done: boolean;
   engine_error: string | null;
+  engine_progress: EngineProgress | null;
   summary: string | null;
   new_terms: NewTerm[];
   spec_markdown: string | null;

@@ -12,6 +12,7 @@ import pytest
 
 from ticket_sprite.engine.claude_code import ClaudeCodeInterviewer
 from ticket_sprite.engine.llm import AttachmentInput, EngineError, InterviewContext
+from ticket_sprite.engine.progress import EngineProgress
 from ticket_sprite.engine.templates import TEMPLATES
 from ticket_sprite.knowledge import Depth, KnowledgeSource
 from ticket_sprite.main import create_app
@@ -130,3 +131,35 @@ async def test_single_user_mode_requires_owner(settings, llm, notifier):
 
 def test_fake_cli_is_executable(tmp_path):
     assert os.access(_fake_claude(tmp_path, {}), os.X_OK)
+
+
+async def test_stream_reports_reads_and_searches(settings, tmp_path):
+    """Tool calls in the stream-json feed become progress; the final result line is the answer."""
+    script = tmp_path / "fake-claude-stream"
+    script.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os\n"
+        "def tool(name, **args):\n"
+        "    return {'type': 'tool_use', 'name': name, 'input': args}\n"
+        "print(json.dumps({'type': 'system', 'subtype': 'init'}))\n"
+        "print('not json')\n"
+        "print(json.dumps({'type': 'assistant', 'message': {'content': [\n"
+        "    tool('Read', file_path=os.path.join(os.getcwd(), 'docs', 'adr', '0001.md')),\n"
+        "    tool('Grep', pattern='Event'),\n"
+        "    tool('Read', file_path='/elsewhere/uploads/a_notes.txt'),\n"
+        "    tool('Read', file_path=os.path.join(os.getcwd(), 'docs', 'adr', '0001.md')),\n"
+        "]}}))\n"
+        f"print(json.dumps({{'type': 'result', 'subtype': 'success', 'is_error': False, 'structured_output': {ROUND!r}}}))\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    settings.claude_code_bin = str(script)
+    progress = EngineProgress()
+
+    result = await ClaudeCodeInterviewer(settings).next_round(
+        _ctx(), KnowledgeSource(root=settings.product_root, depth=Depth.DOCS), progress
+    )
+
+    assert result.done
+    assert progress.reads == ["docs/adr/0001.md", "a_notes.txt"]
+    assert progress.searches == 1

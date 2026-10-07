@@ -17,6 +17,7 @@ import anthropic
 
 from ..config import Settings
 from ..knowledge import TOOL_DEFS, KnowledgeError, KnowledgeSource
+from .progress import EngineProgress
 from .schema import ROUND_SCHEMA, SPEC_SCHEMA, DraftQuestion, RoundResult, SpecResult
 from .templates import InterviewTemplate
 
@@ -66,9 +67,13 @@ class InterviewContext:
 
 
 class InterviewLLM(Protocol):
-    async def next_round(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> RoundResult: ...
+    async def next_round(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> RoundResult: ...
 
-    async def write_spec(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> SpecResult: ...
+    async def write_spec(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> SpecResult: ...
 
 
 # ---------------------------------------------------------------- prompts
@@ -225,15 +230,26 @@ class ClaudeInterviewer:
         self._s = settings
         self._client = client or anthropic.AsyncAnthropic()
 
-    async def next_round(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> RoundResult:
-        data = await self._run(ctx, knowledge, round_prompt(ctx), ROUND_SCHEMA)
+    async def next_round(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> RoundResult:
+        data = await self._run(ctx, knowledge, round_prompt(ctx), ROUND_SCHEMA, progress)
         return RoundResult.from_json(data)
 
-    async def write_spec(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> SpecResult:
-        data = await self._run(ctx, knowledge, spec_prompt(ctx), SPEC_SCHEMA)
+    async def write_spec(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> SpecResult:
+        data = await self._run(ctx, knowledge, spec_prompt(ctx), SPEC_SCHEMA, progress)
         return SpecResult.from_json(data)
 
-    async def _run(self, ctx: InterviewContext, knowledge: KnowledgeSource, prompt: str, schema: dict) -> dict:
+    async def _run(
+        self,
+        ctx: InterviewContext,
+        knowledge: KnowledgeSource,
+        prompt: str,
+        schema: dict,
+        progress: EngineProgress | None,
+    ) -> dict:
         system = SYSTEM_PROMPT.format(depth_note=DEPTH_NOTE[knowledge.depth.value])
         messages: list[dict] = [
             {"role": "user", "content": [*_attachment_blocks(ctx.attachments), {"type": "text", "text": prompt}]}
@@ -273,7 +289,7 @@ class ClaudeInterviewer:
             if response.stop_reason == "pause_turn":
                 continue
             if response.stop_reason == "tool_use":
-                messages.append({"role": "user", "content": self._run_tools(response.content, knowledge)})
+                messages.append({"role": "user", "content": self._run_tools(response.content, knowledge, progress)})
                 continue
 
             text = "".join(b.text for b in response.content if b.type == "text")
@@ -284,11 +300,16 @@ class ClaudeInterviewer:
         raise EngineError("查閱 Knowledge Source 次數過多，未能完成")
 
     @staticmethod
-    def _run_tools(content, knowledge: KnowledgeSource) -> list[dict]:
+    def _run_tools(content, knowledge: KnowledgeSource, progress: EngineProgress | None) -> list[dict]:
         results = []
         for block in content:
             if block.type != "tool_use":
                 continue
+            if progress is not None:
+                if block.name == "read_file":
+                    progress.read(str(block.input.get("path", "")))
+                else:
+                    progress.search()
             try:
                 out = knowledge.call(block.name, dict(block.input))
                 results.append({"type": "tool_result", "tool_use_id": block.id, "content": out})
@@ -308,8 +329,12 @@ class FakeInterviewer:
     def __init__(self) -> None:
         self.calls: list[tuple[str, InterviewContext]] = []
 
-    async def next_round(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> RoundResult:
+    async def next_round(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> RoundResult:
         self.calls.append(("round", ctx))
+        if progress is not None:
+            progress.read("CONTEXT.md")
         if ctx.template.clarify and ctx.round == 0:
             return RoundResult(
                 done=False,
@@ -346,7 +371,9 @@ class FakeInterviewer:
             new_terms=[{"term": "標注", "meaning": "人工判定 VLM 答案", "conflict": None}],
         )
 
-    async def write_spec(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> SpecResult:
+    async def write_spec(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> SpecResult:
         self.calls.append(("spec", ctx))
         body = render_history(ctx)
         return SpecResult(

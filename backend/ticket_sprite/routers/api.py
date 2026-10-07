@@ -273,7 +273,8 @@ def _summary_out(i: Interview) -> dict:
     }
 
 
-def _detail_out(i: Interview, viewer: str, settings: Settings) -> dict:
+def _detail_out(i: Interview, viewer: str, settings: Settings, deps: Deps) -> dict:
+    progress = deps.progress.get(i.id)
     return {
         **_summary_out(i),
         "product": i.product,
@@ -284,6 +285,7 @@ def _detail_out(i: Interview, viewer: str, settings: Settings) -> dict:
         "engine_busy": i.engine_busy,
         "engine_done": i.engine_done,
         "engine_error": i.engine_error,
+        "engine_progress": progress.to_json() if progress and i.engine_busy else None,
         "summary": i.engine_summary,
         "new_terms": i.new_terms or [],
         "spec_markdown": i.spec_markdown,
@@ -366,12 +368,13 @@ async def get_interview(
     email: str = Depends(current_email),
     session: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
+    deps: Deps = Depends(get_deps),
 ):
     try:
         interview = await services.load_interview(session, interview_id)
     except FlowError as exc:
         raise _flow(exc) from exc
-    return _detail_out(interview, email, settings)
+    return _detail_out(interview, email, settings, deps)
 
 
 @router.post("/interviews/{interview_id}/attachments")

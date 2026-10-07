@@ -216,6 +216,12 @@ label.field > :not(span) { color: var(--text); }
 
 .thinking { display: flex; align-items: center; gap: 16px; border-color: var(--border-strong); box-shadow: var(--shadow-lift); }
 .thinking h3 { font-size: 18px; }
+.reads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.reads code {
+  font-family: var(--font-mono); font-size: 12px; padding: 2px 8px; border-radius: 6px;
+  background: var(--surface-2); color: var(--text-2); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.reads code.on { background: var(--accent-soft); color: var(--accent-strong); }
 .sprite-glow { animation: glow 2.4s ease-in-out infinite; transform-origin: 60px 96px; }
 @keyframes glow { 50% { opacity: 0.55; transform: scale(1.12); } }
 .sk { background: linear-gradient(90deg, var(--surface-2) 0%, var(--bg) 50%, var(--surface-2) 100%); background-size: 200% 100%; animation: shimmer 1.4s ease-in-out infinite; border-radius: 6px; }

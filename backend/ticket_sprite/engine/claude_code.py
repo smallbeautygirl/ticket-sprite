@@ -17,12 +17,42 @@ from pathlib import Path
 from ..config import Settings
 from ..knowledge import DOC_GLOBS, SKIP_DIRS, Depth, KnowledgeSource
 from .llm import DEPTH_NOTE, SYSTEM_PROMPT, EngineError, InterviewContext, round_prompt, spec_prompt
+from .progress import EngineProgress, display_path
 from .schema import ROUND_SCHEMA, SPEC_SCHEMA, RoundResult, SpecResult
 
 TOOL_NOTE = (
     "\nYour tools are Read, Grep and Glob over the current working directory (the product's "
     "Knowledge Source). Attachments are files you can Read at the paths given in the request."
 )
+
+
+# One stream-json line can carry a whole file Read; asyncio's default line limit is 64 KiB
+STREAM_LINE_LIMIT = 64 * 1024 * 1024
+
+
+def _track(event: dict, progress: EngineProgress, cwd: Path) -> None:
+    for block in event.get("message", {}).get("content", []):
+        if block.get("type") != "tool_use":
+            continue
+        name, args = block.get("name"), block.get("input") or {}
+        if name == "Read":
+            progress.read(display_path(str(args.get("file_path", "")), cwd))
+        elif name in ("Grep", "Glob"):
+            progress.search()
+
+
+async def _result_event(stdout: asyncio.StreamReader, progress: EngineProgress | None, cwd: Path) -> dict | None:
+    result = None
+    async for line in stdout:
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if event.get("type") == "assistant" and progress is not None:
+            _track(event, progress, cwd)
+        elif event.get("type") == "result":
+            result = event
+    return result
 
 
 def _copy_docs(root: Path, dest: Path) -> None:
@@ -39,16 +69,20 @@ class ClaudeCodeInterviewer:
     def __init__(self, settings: Settings):
         self._s = settings
 
-    async def next_round(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> RoundResult:
-        return RoundResult.from_json(await self._run(ctx, knowledge, round_prompt(ctx), ROUND_SCHEMA))
+    async def next_round(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> RoundResult:
+        return RoundResult.from_json(await self._run(ctx, knowledge, round_prompt(ctx), ROUND_SCHEMA, progress))
 
-    async def write_spec(self, ctx: InterviewContext, knowledge: KnowledgeSource) -> SpecResult:
-        return SpecResult.from_json(await self._run(ctx, knowledge, spec_prompt(ctx), SPEC_SCHEMA))
+    async def write_spec(
+        self, ctx: InterviewContext, knowledge: KnowledgeSource, progress: EngineProgress | None = None
+    ) -> SpecResult:
+        return SpecResult.from_json(await self._run(ctx, knowledge, spec_prompt(ctx), SPEC_SCHEMA, progress))
 
     def _command(self, prompt: str, schema: dict, depth: Depth, attachment_dirs: list[Path]) -> list[str]:
         cmd = [
             self._s.claude_code_bin, "-p", prompt,
-            "--output-format", "json",
+            "--output-format", "stream-json", "--verbose",
             "--json-schema", json.dumps(schema),
             "--tools", "Read", "Grep", "Glob",
             "--permission-mode", "dontAsk",
@@ -64,7 +98,14 @@ class ClaudeCodeInterviewer:
             cmd += ["--add-dir", str(d)]
         return cmd
 
-    async def _run(self, ctx: InterviewContext, knowledge: KnowledgeSource, prompt: str, schema: dict) -> dict:
+    async def _run(
+        self,
+        ctx: InterviewContext,
+        knowledge: KnowledgeSource,
+        prompt: str,
+        schema: dict,
+        progress: EngineProgress | None = None,
+    ) -> dict:
         if not knowledge.root.is_dir():
             raise EngineError("Knowledge Source 尚未就緒（clone 還沒完成）")
         attachment_dirs = sorted({a.path.parent.resolve() for a in ctx.attachments})
@@ -82,22 +123,27 @@ class ClaudeCodeInterviewer:
             try:
                 proc = await asyncio.create_subprocess_exec(
                     *cmd, cwd=cwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
-                    stdin=asyncio.subprocess.DEVNULL,
+                    stdin=asyncio.subprocess.DEVNULL, limit=STREAM_LINE_LIMIT,
                 )
             except FileNotFoundError as exc:
                 raise EngineError(f"找不到 Claude Code CLI：{self._s.claude_code_bin}") from exc
+            assert proc.stdout is not None and proc.stderr is not None
+            stderr = asyncio.create_task(proc.stderr.read())
             try:
-                out, err = await asyncio.wait_for(proc.communicate(), self._s.claude_code_timeout_seconds)
+                data = await asyncio.wait_for(
+                    _result_event(proc.stdout, progress, cwd), self._s.claude_code_timeout_seconds
+                )
+                await proc.wait()
             except TimeoutError as exc:
                 proc.kill()
                 await proc.wait()
                 raise EngineError("Claude Code 逾時") from exc
+            finally:
+                err = await stderr
 
-        try:
-            data = json.loads(out)
-        except json.JSONDecodeError as exc:
-            detail = (err or out).decode(errors="ignore").strip()[-300:]
-            raise EngineError(f"Claude Code 執行失敗：{detail or proc.returncode}") from exc
+        if data is None:
+            detail = err.decode(errors="ignore").strip()[-300:]
+            raise EngineError(f"Claude Code 執行失敗：{detail or proc.returncode}")
         if data.get("is_error") or data.get("subtype") != "success":
             raise EngineError(f"Claude Code 錯誤：{str(data.get('result') or data.get('subtype'))[:300]}")
         result = data.get("structured_output")

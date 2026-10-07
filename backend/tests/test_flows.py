@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -303,3 +304,32 @@ async def test_trial_allowlist(settings, llm, notifier):
         settings.allowed_emails = "kevin@linkervision.com"
         assert (await vivian.get("/api/me")).status_code == 401
         await vivian.aclose()
+
+
+async def test_engine_progress_is_shown_while_the_round_runs(app, deps, vivian, llm):
+    gate = asyncio.Event()
+    next_round = llm.next_round
+
+    async def slow_round(ctx, knowledge, progress=None):
+        progress.read("docs/adr/0001.md")
+        progress.search()
+        await gate.wait()
+        return await next_round(ctx, knowledge, progress)
+
+    llm.next_round = slow_round
+    iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x"})).json()["id"]
+    for _ in range(50):
+        d = await _detail(vivian, iid)
+        if d["engine_progress"]:
+            break
+        await asyncio.sleep(0.01)
+
+    assert d["engine_busy"]
+    assert d["engine_progress"]["reads"] == ["docs/adr/0001.md"]
+    assert d["engine_progress"]["searches"] == 1 and d["engine_progress"]["started_at"]
+
+    gate.set()
+    await deps.drain()
+    d = await _detail(vivian, iid)
+    assert not d["engine_busy"] and d["engine_progress"] is None
+    assert not deps.progress
