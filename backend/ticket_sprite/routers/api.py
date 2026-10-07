@@ -212,6 +212,24 @@ async def search_work_items(
     return [i.__dict__ for i in items]
 
 
+@router.get("/ado/parents")
+async def board_parents(
+    request: Request,
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+):
+    """Parent choices: the User Stories on the team's current iteration board."""
+    ado = await _ado_for(request, session, email, settings)
+    try:
+        items = await ado.board_user_stories()
+    except AdoCredentialMissing as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AdoError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return [i.__dict__ for i in items]
+
+
 PEOPLE_CACHE_SECONDS = 3600
 
 

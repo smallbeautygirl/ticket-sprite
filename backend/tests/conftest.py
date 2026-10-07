@@ -54,7 +54,10 @@ class FakeAdo:
             return httpx.Response(201, json={"url": f"https://dev.azure.com/att/{name}"})
         if path.endswith("/_apis/wit/wiql"):
             self.wiql_calls += 1
-            if "[System.AssignedTo] <> ''" in json.loads(request.content)["query"]:
+            query = json.loads(request.content)["query"]
+            if "@CurrentIteration('[Deliver team]\\Deliver team Team')" in query:
+                return httpx.Response(200, json={"workItems": [{"id": 41152}, {"id": 41155}]})
+            if "[System.AssignedTo] <> ''" in query:
                 return httpx.Response(200, json={"workItems": [{"id": i} for i in self.assigned]})
             return httpx.Response(200, json={"workItems": [{"id": 41152}]})
         if path.endswith("/_apis/wit/workitems") and request.method == "GET":

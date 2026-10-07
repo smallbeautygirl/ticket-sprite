@@ -206,6 +206,29 @@ class AdoClient:
         ids = [w["id"] for w in resp.json().get("workItems", [])][:limit]
         return await self.get_work_items(ids)
 
+    async def board_user_stories(self) -> list[WorkItemSummary]:
+        """Open User Stories in the team's current iteration, in board order: the usual Parents."""
+        team = self._s.ado_team.replace("'", "''")
+        project = self._s.ado_project.replace("'", "''")
+        wiql = (
+            "SELECT [System.Id] FROM WorkItems "
+            "WHERE [System.TeamProject] = @project "
+            "AND [System.WorkItemType] = 'User Story' "
+            f"AND [System.IterationPath] = @CurrentIteration('[{project}]\\{team}') "
+            "AND [System.State] NOT IN ('Closed', 'Removed', 'Done') "
+            "ORDER BY [Microsoft.VSTS.Common.BacklogPriority]"
+        )
+        async with self._client() as c:
+            resp = await c.post(
+                f"{self._project_url}/_apis/wit/wiql",
+                params={"$top": 200, "api-version": API_VERSION},
+                json={"query": wiql},
+            )
+        self._raise_for(resp)
+        ids = [w["id"] for w in resp.json().get("workItems", [])][:200]
+        by_id = {w.id: w for w in await self.get_work_items(ids)}
+        return [by_id[i] for i in ids if i in by_id]
+
     async def recent_assignees(self, days: int = 180, scan: int = 400) -> list[Person]:
         """People assigned work items in the project lately, most assigned first.
 

@@ -506,3 +506,10 @@ async def test_ticket_keeps_only_existing_tags_without_tag_permission(app, deps,
     assert r.status_code == 200, r.text
     fields = {op["path"]: op["value"] for op in fake_ado.created[-1]["ops"]}
     assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm"  # to:rd is new, dropped
+
+
+async def test_parent_choices_are_the_current_iteration_user_stories(app, vivian, fake_ado):
+    await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890", "expires_on": "2027-10-01"})
+    r = await vivian.get("/api/ado/parents")
+    assert r.status_code == 200, r.text
+    assert [w["id"] for w in r.json()] == [41152, 41155]  # board order kept

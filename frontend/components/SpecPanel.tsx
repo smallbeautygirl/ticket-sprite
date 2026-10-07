@@ -55,6 +55,8 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   const [parentId, setParentId] = useState<number | null>(d.default_parent_id);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<WorkItem[]>([]);
+  const [boardParents, setBoardParents] = useState<WorkItem[]>([]);
+  const [searching, setSearching] = useState(false); // the free search for a Parent off the board
   const [priority, setPriority] = useState<number>(d.suggested_priority ?? 2);
   const [severity, setSeverity] = useState<string>(d.suggested_severity ?? "3 - Medium");
   const [assignee, setAssignee] = useState(d.assignee ?? "");
@@ -73,9 +75,16 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
   }, [d.title, d.spec_markdown]);
 
   useEffect(() => {
-    if (!adoReady || !d.default_parent_id) return;
-    api.searchWorkItems(String(d.default_parent_id)).then((r) => setParent(r[0] ?? null)).catch(() => {});
+    if (!adoReady) return;
+    api.boardParents().then(setBoardParents).catch(() => {});
+    if (d.default_parent_id) {
+      api.searchWorkItems(String(d.default_parent_id)).then((r) => setParent(r[0] ?? null)).catch(() => {});
+    }
   }, [adoReady, d.default_parent_id]);
+
+  // The chosen Parent stays selectable even when it isn't on the board (default or searched)
+  const parentOptions = [...boardParents];
+  if (parent && !parentOptions.some((w) => w.id === parent.id)) parentOptions.unshift(parent);
 
   async function search() {
     if (!query.trim()) return;
@@ -177,71 +186,92 @@ export default function SpecPanel({ d, me, meta, onChanged }: Props) {
               還沒連結 Azure DevOps，<Link href="/settings">先到設定頁連結</Link>（約 1 分鐘）。
             </div>
           )}
-          <div className="stack">
-            <span className="muted small">Parent</span>
-            <div className="row">
-              {parentId ? (
-                <span>
-                  <b>#{parentId}</b> {parent?.id === parentId ? `${parent.title}（${parent.work_item_type}）` : ""}
-                </span>
-              ) : (
-                <span className="muted">不掛 Parent</span>
-              )}
-              {parentId && (
-                <button className="link" onClick={() => setParentId(null)}>
-                  移除
-                </button>
-              )}
-            </div>
-            <div className="row">
-              <input
-                type="text"
-                placeholder="輸入 work item id 或標題關鍵字，換一個 Parent"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  if (!e.target.value.trim()) setResults([]);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") search();
-                  if (e.key === "Escape") setResults([]);
-                }}
-                style={{ flex: 1, width: "auto" }}
+          <div className="stack" style={{ gap: 6 }}>
+            <label className="field">
+              <span>Parent（看板「目前 iteration」上的 User Story）</span>
+              <select
+                value={parentId ?? ""}
                 disabled={!adoReady}
-              />
-              <button onClick={search} disabled={!adoReady}>
-                搜尋
+                onChange={(e) => {
+                  const id = e.target.value ? Number(e.target.value) : null;
+                  setParentId(id);
+                  setParent(parentOptions.find((w) => w.id === id) ?? null);
+                }}
+              >
+                <option value="">不掛 Parent</option>
+                {parentId && !parentOptions.some((w) => w.id === parentId) && (
+                  <option value={parentId}>#{parentId}</option>
+                )}
+                {parentOptions.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    #{w.id} {w.title}
+                    {w.work_item_type !== "User Story" ? `（${w.work_item_type}）` : ""}
+                    {w.state && w.state !== "New" ? ` · ${w.state}` : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {!searching ? (
+              <button className="link small" style={{ alignSelf: "flex-start" }} disabled={!adoReady} onClick={() => setSearching(true)}>
+                找不到？搜尋其他 work item
               </button>
-            </div>
-            {results.length > 0 && (
-              <div className="card list" style={{ padding: 0 }}>
-                <div className="row small muted" style={{ padding: "6px 14px", borderBottom: "1px solid var(--border)" }}>
-                  搜尋結果 {results.length} 筆，點一筆設為 Parent
-                  <span className="spacer" />
-                  <button className="link small" onClick={() => setResults([])}>
-                    收合
-                  </button>
-                </div>
-                {results.map((w) => (
-                  <a
-                    key={w.id}
-                    className="item"
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setParentId(w.id);
-                      setParent(w);
+            ) : (
+              <>
+                <div className="row">
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="輸入 work item id 或標題關鍵字"
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      if (!e.target.value.trim()) setResults([]);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") search();
+                      if (e.key === "Escape") {
+                        setResults([]);
+                        setSearching(false);
+                      }
+                    }}
+                    style={{ flex: 1, width: "auto" }}
+                  />
+                  <button onClick={search}>搜尋</button>
+                  <button
+                    className="link small"
+                    onClick={() => {
                       setResults([]);
+                      setSearching(false);
                     }}
                   >
-                    <span className="badge">{w.work_item_type}</span>
-                    <span className="title">
-                      #{w.id} {w.title}
-                    </span>
-                    <span className="muted small">{w.state}</span>
-                  </a>
-                ))}
-              </div>
+                    取消
+                  </button>
+                </div>
+                {results.length > 0 && (
+                  <div className="card list" style={{ padding: 0 }}>
+                    {results.map((w) => (
+                      <a
+                        key={w.id}
+                        className="item"
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setParentId(w.id);
+                          setParent(w);
+                          setResults([]);
+                          setSearching(false);
+                        }}
+                      >
+                        <span className="badge">{w.work_item_type}</span>
+                        <span className="title">
+                          #{w.id} {w.title}
+                        </span>
+                        <span className="muted small">{w.state}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
           <div className="row">

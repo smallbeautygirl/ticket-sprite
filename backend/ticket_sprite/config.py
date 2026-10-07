@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     ado_org: str = "linkerengineer"
     ado_project: str = "Deliver team"
     ado_area_path: str = "Deliver team"
+    ado_team: str = "Deliver team Team"  # whose current iteration lists the Parent choices
     ado_default_parent_id: int = 41152
     fernet_key: str = ""  # Fernet key for encrypting PATs; required outside tests
     ado_dev_pat: str = ""  # dev only: shared PAT used when a user has none

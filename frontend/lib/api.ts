@@ -173,6 +173,7 @@ export const api = {
     request<AdoStatus>("/me/ado", { method: "PUT", body: json({ pat, expires_on }) }),
   disconnectAdo: () => request<AdoStatus>("/me/ado", { method: "DELETE" }),
   meta: () => request<Meta>("/meta"),
+  boardParents: () => request<WorkItem[]>("/ado/parents"),
   adoPeople: () => request<Person[]>("/ado/people"),
   searchWorkItems: (q: string) => request<WorkItem[]>(`/ado/work-items?q=${encodeURIComponent(q)}`),
 
