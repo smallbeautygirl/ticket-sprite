@@ -41,7 +41,7 @@ Request 的分類：Feature、Bug 或 Task（Task 主要用於 RD 發起的 Inte
 _Avoid_: Category, Kind
 
 **Interview**:
-針對一個 Request 的一連串問答，可暫停後續答，結束時產出一份 Spec。
+針對一個 Request 的一連串問答，可暫停後續答，結束時產出一份 Spec。畫面上顯示為「需求」（導覽列、列表標題、新增需求），程式與文件仍稱 Interview。
 _Avoid_: Session, 對話, Chat
 
 **Interview Template**:

@@ -166,7 +166,7 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
 
       <details className="card" open={d.questions.length === 0}>
         <summary style={{ cursor: "pointer" }}>
-          <b>Request 原文</b>
+          <b>需求原文</b>
           {d.attachments.length > 0 && <span className="muted small">（{d.attachments.length} 個附件）</span>}
         </summary>
         <div className="pre" style={{ marginTop: 10 }}>{d.request_text || "（無文字）"}</div>

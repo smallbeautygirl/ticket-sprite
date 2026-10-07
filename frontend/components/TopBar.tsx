@@ -35,8 +35,8 @@ export default function TopBar() {
         開票小精靈
       </Link>
       <nav>
-        <Link href="/" className={pathname === "/" || pathname.startsWith("/interviews") ? "on" : ""}>Interviews</Link>
-        <Link href="/new" className={pathname === "/new" ? "on" : ""}>新增 Request</Link>
+        <Link href="/" className={pathname === "/" || pathname.startsWith("/interviews") ? "on" : ""}>需求</Link>
+        <Link href="/new" className={pathname === "/new" ? "on" : ""}>新增需求</Link>
         <Link href="/settings" className={pathname === "/settings" ? "on" : ""}>設定</Link>
       </nav>
       {down && <span className="badge danger">{down}</span>}

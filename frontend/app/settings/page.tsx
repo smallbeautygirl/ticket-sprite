@@ -60,7 +60,7 @@ export default function Settings() {
             </button>
           ))}
         </div>
-        <span className="muted small">新增 Request 時預設選這個 Role。</span>
+        <span className="muted small">新增需求時預設選這個 Role。</span>
       </div>
 
       <h2>Azure DevOps 連結</h2>

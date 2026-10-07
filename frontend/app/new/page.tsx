@@ -71,7 +71,7 @@ export default function NewRequest() {
 
   return (
     <div className="stack">
-      <h1>新增 Request</h1>
+      <h1>新增需求</h1>
       <div className="card stack">
         <div className="row">
           <span className="muted small" style={{ width: 70 }}>Role</span>

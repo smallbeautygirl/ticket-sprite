@@ -63,9 +63,9 @@ export default function Home() {
   return (
     <div className="stack">
       <div className="row">
-        <h1>Interviews</h1>
+        <h1>需求</h1>
         <span className="spacer" />
-        <Link href="/new" className="btn primary">＋ 新增 Request</Link>
+        <Link href="/new" className="btn primary">＋ 新增需求</Link>
       </div>
       <div className="seg">
         {SCOPES.map((s) => (
@@ -80,7 +80,7 @@ export default function Home() {
         {items === null && <p className="muted" style={{ padding: 16 }}>載入中…</p>}
         {items?.length === 0 && (
           <p className="muted" style={{ padding: 16 }}>
-            {scope === "for-me" ? "目前沒有轉交給你的題目。" : "還沒有 Interview。"}
+            {scope === "for-me" ? "目前沒有轉交給你的題目。" : "還沒有需求。"}
           </p>
         )}
         {items?.map((i) => (
