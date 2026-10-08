@@ -9,7 +9,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import services
@@ -21,7 +21,7 @@ from ..products import label as product_label
 from ..products import product as product_of
 from ..products import products
 from ..engine.templates import DEFAULT_AUDIENCE, DEFAULT_QUESTION_BUDGET, DEFAULT_TEMPLATE, QUESTION_BUDGETS, TEMPLATES
-from ..models import Attachment, Interview, Question, QuestionStatus, RequestType, Role, User
+from ..models import Attachment, GameScore, Interview, Question, QuestionStatus, RequestType, Role, User, utcnow
 from ..services import Deps, FlowError
 
 router = APIRouter(prefix="/api")
@@ -130,6 +130,54 @@ async def me(
         "default_role": user.default_role,
         "ado": _ado_status(user, settings),
     }
+
+
+# ---------------------------------------------------------------- waiting game
+
+LEADERBOARD_SIZE = 5
+
+
+class ScoreIn(BaseModel):
+    # the browser counts the score; this is a game among colleagues, so only nonsense is refused
+    score: int = Field(ge=0, le=10_000)
+
+
+async def _standing(session: AsyncSession, email: str) -> dict | None:
+    mine = await session.get(GameScore, email)
+    if mine is None:
+        return None
+    ahead = (await session.execute(select(func.count()).where(GameScore.best > mine.best))).scalar_one()
+    return {"rank": ahead + 1, "best": mine.best}
+
+
+@router.get("/game/leaderboard")
+async def game_leaderboard(email: str = Depends(current_email), session: AsyncSession = Depends(get_session)):
+    rows = (
+        await session.execute(
+            select(GameScore, User.display_name)
+            .outerjoin(User, User.email == GameScore.email)
+            .order_by(GameScore.best.desc(), GameScore.achieved_at)
+            .limit(LEADERBOARD_SIZE)
+        )
+    ).all()
+    top = [
+        {"name": name or score.email.split("@")[0], "best": score.best, "me": score.email == email}
+        for score, name in rows
+    ]
+    return {"top": top, "mine": await _standing(session, email)}
+
+
+@router.post("/game/scores")
+async def game_score(body: ScoreIn, email: str = Depends(current_email), session: AsyncSession = Depends(get_session)):
+    mine = await session.get(GameScore, email)
+    record = mine is None or body.score > mine.best
+    if mine is None:
+        session.add(GameScore(email=email, best=body.score))
+    elif record:
+        mine.best = body.score
+        mine.achieved_at = utcnow()
+    await session.commit()
+    return {"record": record, "mine": await _standing(session, email)}
 
 
 class MeIn(BaseModel):

@@ -36,6 +36,16 @@ export interface Meta {
   teams_enabled: boolean;
 }
 
+export interface Standing {
+  rank: number;
+  best: number;
+}
+
+export interface Leaderboard {
+  top: { name: string; best: number; me: boolean }[];
+  mine: Standing | null;
+}
+
 export interface InterviewSummary {
   id: string;
   product: string;
@@ -188,6 +198,9 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ email: string }>("/auth/login", { method: "POST", body: json({ email, password }) }),
   logout: () => request("/auth/logout", { method: "POST" }),
+  leaderboard: () => request<Leaderboard>("/game/leaderboard"),
+  saveScore: (score: number) =>
+    request<{ record: boolean; mine: Standing }>("/game/scores", { method: "POST", body: json({ score }) }),
   me: () => request<Me>("/me"),
   setDefaultRole: (default_role: Role) => request("/me", { method: "PUT", body: json({ default_role }) }),
   connectAdo: (pat: string, expires_on: string | null) =>

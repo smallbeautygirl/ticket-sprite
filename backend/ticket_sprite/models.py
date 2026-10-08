@@ -184,3 +184,13 @@ class Attachment(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     interview: Mapped[Interview] = relationship(back_populates="attachments")
+
+
+class GameScore(Base):
+    """Someone's all-time best in the waiting game (螢火蟲收集詞彙), for its leaderboard."""
+
+    __tablename__ = "game_scores"
+
+    email: Mapped[str] = mapped_column(String(320), primary_key=True)
+    best: Mapped[int] = mapped_column(Integer)
+    achieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -339,6 +339,11 @@ button.example:hover:not(:disabled) { border-style: solid; border-color: var(--a
   background: rgba(28, 43, 34, 0.6); /* the sky, dimmed so the text reads over the still scene */
 }
 .game-overlay b { font-family: var(--font-display); font-weight: 400; font-size: 20px; color: var(--glow); }
+.game-board { display: flex; flex-direction: column; gap: 4px; }
+.game-board ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-width: 320px; }
+.game-board li { display: grid; grid-template-columns: 1.5em 1fr auto; gap: 8px; padding: 2px 8px; border-radius: 6px; }
+.game-board li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-board li.me { background: var(--accent-soft); font-weight: 600; }
 .thinking h3 { font-size: 18px; }
 .reads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .reads code {
