@@ -359,28 +359,40 @@ button.example:hover:not(:disabled) { border-style: solid; border-color: var(--a
 .boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
 .boards .game-board ol { max-width: none; }
 .games { flex-basis: 100%; display: flex; flex-direction: column; gap: 10px; }
-/* 踩地雷: light tiles on the same night sky */
-.mines-stage { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 12px 16px; color: var(--night-text); }
-.mines-bar { display: flex; gap: 16px; align-items: center; font-variant-numeric: tabular-nums; }
-.mines-bar .link { color: var(--night-text); }
-.mines-bar .link.on { color: var(--glow); text-decoration: underline; }
-.mines-result { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 14px; min-height: 36px; }
-.mines-result b { font-family: var(--font-display); font-weight: 400; font-size: 18px; color: var(--glow); }
-.mines-grid { display: flex; flex-direction: column; gap: 3px; }
-.mines-row { display: flex; gap: 3px; }
-.mine-cell {
-  width: 30px; height: 30px; padding: 0; border: none; border-radius: 6px; min-height: 0;
-  display: inline-grid; place-items: center;
-  background: #3b5546; color: var(--night-text); font: 700 15px/1 var(--font-display); cursor: pointer;
+/* 踩地雷: the classic Windows look (grey bevels, red LEDs), the same in both themes */
+.ms {
+  align-self: center; display: inline-flex; flex-direction: column; gap: 6px; padding: 6px;
+  background: #c0c0c0; border: 3px solid; border-color: #fff #808080 #808080 #fff; user-select: none;
 }
-.mine-cell:hover:not(.open) { background: #48675a; }
-.mine-cell:focus-visible { outline: 2px solid var(--glow); outline-offset: 1px; }
-.mine-cell.open, .mine-cell.open:hover:not(:disabled) { background: var(--night-text); color: #1c2b22; cursor: default; }
-.mine-cell.boom, .mine-cell.boom:hover:not(:disabled) { background: #f3c1b6; }
-.mine-cell.n1 { color: #1f5e9e; } .mine-cell.n2 { color: #1f6b45; } .mine-cell.n3 { color: #b42323; }
-.mine-cell.n4 { color: #4b2f8a; } .mine-cell.n5 { color: #8a4b08; } .mine-cell.n6 { color: #0f6a6a; }
-.mine-cell.n7, .mine-cell.n8 { color: #1c2b22; }
-@media (max-width: 400px) { .mine-cell { width: 26px; height: 26px; font-size: 13px; } }
+.ms-head {
+  display: flex; align-items: center; justify-content: space-between; padding: 4px 5px;
+  border: 2px solid; border-color: #808080 #fff #fff #808080;
+}
+.ms-led {
+  min-width: 3ch; padding: 1px 3px; background: #000; color: #ff1e1e; text-shadow: 0 0 4px rgba(255, 30, 30, 0.6);
+  font: 700 24px/1 var(--font-mono); letter-spacing: 1px; font-variant-numeric: tabular-nums;
+}
+button.ms-face, button.ms-face:hover:not(:disabled) {
+  width: 32px; height: 32px; min-height: 0; padding: 0; display: inline-grid; place-items: center; font-size: 19px; line-height: 1;
+  background: #c0c0c0; border: 2px solid; border-color: #fff #808080 #808080 #fff; border-radius: 0;
+}
+button.ms-face:active { border-color: #808080 #fff #fff #808080; }
+.ms-grid { display: flex; flex-direction: column; border: 3px solid; border-color: #808080 #fff #fff #808080; }
+.ms-row { display: flex; }
+button.ms-cell, button.ms-cell:hover:not(:disabled) {
+  width: 28px; height: 28px; min-height: 0; padding: 0; display: inline-grid; place-items: center;
+  background: #c0c0c0; color: #000; border: 3px solid; border-color: #fff #808080 #808080 #fff; border-radius: 0;
+  font: 700 17px/1 Tahoma, Verdana, "Noto Sans TC", sans-serif; cursor: default;
+}
+button.ms-cell:focus-visible { outline: 2px solid #000; outline-offset: -4px; }
+button.ms-cell.open, button.ms-cell.open:hover:not(:disabled) {
+  border: none; border-right: 1px solid #808080; border-bottom: 1px solid #808080; font-size: 17px;
+}
+button.ms-cell.blast, button.ms-cell.blast:hover:not(:disabled) { background: #ff0000; }
+.ms-cell.n1 { color: #0000ff; } .ms-cell.n2 { color: #008000; } .ms-cell.n3 { color: #ff0000; } .ms-cell.n4 { color: #000080; }
+.ms-cell.n5 { color: #800000; } .ms-cell.n6 { color: #008080; } .ms-cell.n7 { color: #000; } .ms-cell.n8 { color: #808080; }
+.ms-cell:not(.open) { font-size: 14px; }
+@media (max-width: 400px) { button.ms-cell, button.ms-cell:hover:not(:disabled) { width: 26px; height: 26px; } }
 .thinking h3 { font-size: 18px; }
 .reads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .reads code {

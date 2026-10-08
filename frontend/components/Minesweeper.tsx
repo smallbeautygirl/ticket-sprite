@@ -7,6 +7,7 @@ import { submitScore } from "./GameBoard";
 
 // 踩地雷: the other thing to do while the sprite reads. One fixed 9×9 board with 10 mines; the clock starts on the
 // first click (which is never a mine) and the leaderboard ranks the fastest clear. Right-click, F, or 插旗模式 flags.
+// It looks like the classic Windows game on purpose, the same in both themes.
 
 type Phase = "ready" | "playing" | "won" | "lost";
 
@@ -19,6 +20,8 @@ export default function Minesweeper() {
   const [focus, setFocus] = useState(Math.floor((ROWS * COLS) / 2));
   const [best, setBest] = useState<number | null>(null);
   const [record, setRecord] = useState(false);
+  const [pressing, setPressing] = useState(false);
+  const [blast, setBlast] = useState(-1); // the mine that went off, shown red
   const cells = useRef<(HTMLButtonElement | null)[]>([]);
 
   useEffect(() => {
@@ -39,6 +42,7 @@ export default function Minesweeper() {
     setPhase("ready");
     setElapsed(0);
     setRecord(false);
+    setBlast(-1);
   }
 
   async function win(ms: number) {
@@ -63,6 +67,7 @@ export default function Minesweeper() {
     }
     const { board: next, boom } = reveal(b, i);
     if (boom) {
+      setBlast(next.findIndex((c) => c.mine && c.open));
       setBoard(next.map((c) => (c.mine ? { ...c, open: true } : c)));
       setElapsed(performance.now() - t0);
       setPhase("lost");
@@ -113,33 +118,46 @@ export default function Minesweeper() {
 
   const seconds = (elapsed / 1000).toFixed(1);
   const over = phase === "won" || phase === "lost";
+  const led = (n: number) => String(Math.max(-99, Math.min(999, n))).padStart(3, "0");
+  const face = phase === "won" ? "😎" : phase === "lost" ? "😵" : pressing ? "😮" : "🙂";
 
   return (
     <div className="game">
-      <div className="game-stage mines-stage">
-        <div className="mines-bar small">
-          <span aria-label="剩下的旗子">🚩 {flagsLeft(board)}</span>
-          <span aria-label="經過時間">⏱ {seconds}</span>
-          <button className={`link small${flagMode ? " on" : ""}`} aria-pressed={flagMode} onClick={() => setFlagMode(!flagMode)}>
-            插旗模式
+      {/* The classic Windows look: a raised grey panel, red LED counters, the face to restart */}
+      <div className="ms">
+        <div className="ms-head">
+          <span className="ms-led" aria-label={`剩下 ${flagsLeft(board)} 面旗子`}>{led(flagsLeft(board))}</span>
+          <button className="ms-face" aria-label="重新開始" onClick={restart}>
+            {face}
           </button>
+          <span className="ms-led" aria-label={`經過 ${Math.floor(elapsed / 1000)} 秒`}>{led(Math.floor(elapsed / 1000))}</span>
         </div>
-        <div className="mines-grid" role="grid" aria-label="踩地雷：方向鍵移動，Enter 翻開，F 插旗">
+        <div
+          className="ms-grid"
+          role="grid"
+          aria-label="踩地雷：方向鍵移動，Enter 翻開，F 插旗"
+          onPointerDown={(e) => !over && e.button === 0 && setPressing(true)}
+          onPointerUp={() => setPressing(false)}
+          onPointerLeave={() => setPressing(false)}
+        >
           {Array.from({ length: ROWS }, (_, r) => (
-            <div key={r} role="row" className="mines-row">
+            <div key={r} role="row" className="ms-row">
               {Array.from({ length: COLS }, (_, c) => {
                 const i = r * COLS + c;
                 const cell = board[i];
-                const shown = cell.open ? (cell.mine ? "💣" : cell.adjacent || "") : cell.flag ? "🚩" : "";
-                const label = cell.open
-                  ? cell.mine
-                    ? "地雷"
-                    : cell.adjacent
-                      ? `${cell.adjacent}`
-                      : "空白"
-                  : cell.flag
-                    ? "已插旗"
-                    : "未翻開";
+                const wrongFlag = phase === "lost" && cell.flag && !cell.mine;
+                const shown = wrongFlag ? "❌" : cell.open ? (cell.mine ? "💣" : cell.adjacent || "") : cell.flag ? "🚩" : "";
+                const label = wrongFlag
+                  ? "插錯旗"
+                  : cell.open
+                    ? cell.mine
+                      ? "地雷"
+                      : cell.adjacent
+                        ? `${cell.adjacent}`
+                        : "空白"
+                    : cell.flag
+                      ? "已插旗"
+                      : "未翻開";
                 return (
                   <button
                     key={c}
@@ -149,7 +167,7 @@ export default function Minesweeper() {
                     role="gridcell"
                     tabIndex={i === focus ? 0 : -1}
                     aria-label={`第 ${r + 1} 列第 ${c + 1} 行，${label}`}
-                    className={`mine-cell${cell.open ? " open" : ""}${cell.open && !cell.mine && cell.adjacent ? ` n${cell.adjacent}` : ""}${cell.open && cell.mine ? " boom" : ""}`}
+                    className={`ms-cell${cell.open || wrongFlag ? " open" : ""}${cell.open && !cell.mine && cell.adjacent ? ` n${cell.adjacent}` : ""}${i === blast ? " blast" : ""}`}
                     onClick={() => {
                       setFocus(i);
                       press(i);
@@ -167,19 +185,18 @@ export default function Minesweeper() {
             </div>
           ))}
         </div>
-        {/* the result sits under the board, so the mines stay in view */}
-        {over && (
-          <div className="mines-result" role="status">
-            <b>{phase === "won" ? "全部清乾淨了！" : "踩到地雷了！"}</b>
-            <span className="small">{phase === "won" ? `花了 ${seconds} 秒${record ? "，新紀錄！" : "。"}` : "地雷都翻出來了。"}</span>
-            <button className="primary small" onClick={restart}>
-              再來一局
-            </button>
-          </div>
-        )}
       </div>
-      <div className="row small muted">
-        <span>{phase === "ready" ? "點任一格開始，第一格一定安全" : "右鍵或 F 插旗；點已滿旗的數字可一次翻開周圍"}</span>
+      <div className="row small muted" role="status">
+        {over ? (
+          <span>
+            {phase === "won" ? `全部清乾淨了！花了 ${seconds} 秒${record ? "，新紀錄！" : "。"}` : "踩到地雷了！"}點笑臉再來一局。
+          </span>
+        ) : (
+          <span>{phase === "ready" ? "點任一格開始，第一格一定安全。" : "右鍵或 F 插旗；旗子插滿的數字點一下會翻開周圍。"}</span>
+        )}
+        <button className={`link small${flagMode ? " on" : ""}`} aria-pressed={flagMode} onClick={() => setFlagMode(!flagMode)}>
+          {flagMode ? "插旗模式：開" : "插旗模式"}
+        </button>
         <span className="spacer" />
         <span>最快 {best === null ? "—" : formatBest("mines", best)}</span>
       </div>
