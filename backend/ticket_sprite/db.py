@@ -48,11 +48,23 @@ def _add_missing_columns(conn: Connection) -> None:
             conn.exec_driver_sql(f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" {ddl}')
 
 
+def _move_game_scores(conn: Connection) -> None:
+    """game_scores (firefly only, keyed by email) became game_bests, keyed by game and email."""
+    if not inspect(conn).has_table("game_scores"):
+        return
+    conn.exec_driver_sql(
+        "INSERT INTO game_bests (game, email, best, achieved_at) "
+        "SELECT 'firefly', email, best, achieved_at FROM game_scores"
+    )
+    conn.exec_driver_sql("DROP TABLE game_scores")
+
+
 async def create_all() -> None:
     assert _engine is not None
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_add_missing_columns)
+        await conn.run_sync(_move_game_scores)
 
 
 def sessionmaker() -> async_sessionmaker[AsyncSession]:

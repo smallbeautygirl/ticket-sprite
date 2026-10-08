@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { api, Leaderboard } from "@/lib/api";
+import { api } from "@/lib/api";
+import { submitScore } from "./GameBoard";
 
 // 螢火蟲收集詞彙: something to do while the sprite reads. Fly up with Space or a tap, collect
 // the glowing terms, stay out of the fog. It waits paused until asked, is silent, and goes away with
@@ -123,7 +124,7 @@ function scatterPollen(): Pollen[] {
   return Array.from({ length: 28 }, () => ({ x: Math.random() * 1600, y: Math.random() * H, r: Math.random() * 1.4 + 0.4 }));
 }
 
-export default function FireflyGame({ onClose }: { onClose: () => void }) {
+export default function FireflyGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const flap = useRef<() => void>(() => {});
   const [phase, setPhase] = useState<"ready" | "playing" | "over">("ready");
@@ -131,32 +132,29 @@ export default function FireflyGame({ onClose }: { onClose: () => void }) {
   const [best, setBest] = useState(0);
   const [record, setRecord] = useState(false);
   const [locked, setLocked] = useState(false);
-  const [board, setBoard] = useState<Leaderboard | null>(null);
 
-  async function loadBoard() {
+  async function loadBest() {
     try {
-      const b = await api.leaderboard();
-      setBoard(b);
-      setBest(b.mine?.best ?? 0);
+      setBest((await api.leaderboard("firefly", 1)).mine?.best ?? 0);
     } catch {
-      // offline: the game still plays, just without the leaderboard
+      // offline: the game still plays, just without the best score
     }
   }
 
   useEffect(() => {
     const local = takeLocalBest();
-    (local ? api.saveScore(local).catch(() => undefined) : Promise.resolve()).then(loadBoard);
+    (local ? submitScore("firefly", local).catch(() => undefined) : Promise.resolve()).then(loadBest);
   }, []);
 
   async function finishGame(got: number) {
     setRecord(false);
     try {
-      const r = await api.saveScore(got);
+      const r = await submitScore("firefly", got);
       setRecord(r.record && got > 0);
+      setBest(r.mine.best);
     } catch {
-      return;
+      // offline: no record this time
     }
-    await loadBoard();
   }
 
   function start() {
@@ -323,30 +321,9 @@ export default function FireflyGame({ onClose }: { onClose: () => void }) {
           </div>
         )}
       </div>
-      {phase !== "playing" && board && board.top.length > 0 && (
-        <div className="game-board small">
-          <b>排行榜</b>
-          <ol>
-            {board.top.map((p, i) => (
-              <li key={i} className={p.me ? "me" : undefined}>
-                <span className="muted">{i + 1}</span>
-                <span className="name">{p.name}</span>
-                <span>{p.best}</span>
-              </li>
-            ))}
-          </ol>
-          {board.mine && !board.top.some((p) => p.me) && (
-            <span className="muted">你目前第 {board.mine.rank} 名，最高 {board.mine.best}</span>
-          )}
-        </div>
-      )}
       <div className="row small muted">
         <span>收集 {score}</span>
         <span>最高 {best}</span>
-        <span className="spacer" />
-        <button className="link small" onClick={onClose}>
-          收起遊戲
-        </button>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 # Single-user trial (LLM_MODE=claude_code): the interview runs on the owner's own Claude Code
 # login, mounted read-write from the host so token refreshes persist. Data stays in ./data
-# (SQLite, uploads, the Knowledge Source clone), the same folder scripts/trial.sh used.
+# (SQLite, uploads, the Knowledge Source clone).
 #
 #   docker compose -f docker-compose.single-user.yml up -d --build
 #

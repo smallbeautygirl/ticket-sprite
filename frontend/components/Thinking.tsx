@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import { EngineProgress } from "@/lib/api";
 import { canNotify } from "@/lib/ready";
-import FireflyGame from "./FireflyGame";
 import Sprite from "./Sprite";
+import WaitingGames from "./WaitingGames";
 
 const GAME_HIDDEN_KEY = "sprite.game.hidden";
 
@@ -109,7 +109,7 @@ export default function Thinking({
           </button>
         )}
       </div>
-      {showGame && <FireflyGame onClose={() => toggleGame(false)} />}
+      {showGame && <WaitingGames onClose={() => toggleGame(false)} />}
     </div>
   );
 }

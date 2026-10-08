@@ -5,10 +5,11 @@ from __future__ import annotations
 import time
 from datetime import date, timedelta
 from pathlib import Path
+from typing import Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, Response, UploadFile
 from fastapi.responses import FileResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +22,7 @@ from ..products import label as product_label
 from ..products import product as product_of
 from ..products import products
 from ..engine.templates import DEFAULT_AUDIENCE, DEFAULT_QUESTION_BUDGET, DEFAULT_TEMPLATE, QUESTION_BUDGETS, TEMPLATES
-from ..models import Attachment, GameScore, Interview, Question, QuestionStatus, RequestType, Role, User, utcnow
+from ..models import Attachment, GameBest, Interview, Question, QuestionStatus, RequestType, Role, User, utcnow
 from ..services import Deps, FlowError
 
 router = APIRouter(prefix="/api")
@@ -132,52 +133,77 @@ async def me(
     }
 
 
-# ---------------------------------------------------------------- waiting game
+# ---------------------------------------------------------------- waiting games
 
-LEADERBOARD_SIZE = 5
+Game = Literal["firefly", "mines"]
+# game → (higher is better, lowest and highest score accepted). The browser counts the score;
+# these are games among colleagues, so only nonsense is refused.
+GAMES: dict[str, tuple[bool, int, int]] = {
+    "firefly": (True, 0, 10_000),  # words collected
+    "mines": (False, 1_000, 3_600_000),  # milliseconds to clear the board
+}
 
 
 class ScoreIn(BaseModel):
-    # the browser counts the score; this is a game among colleagues, so only nonsense is refused
-    score: int = Field(ge=0, le=10_000)
+    game: Game = "firefly"
+    score: int
+
+    @model_validator(mode="after")
+    def _in_range(self) -> "ScoreIn":
+        _, low, high = GAMES[self.game]
+        if not low <= self.score <= high:
+            raise ValueError(f"score must be between {low} and {high}")
+        return self
 
 
-async def _standing(session: AsyncSession, email: str) -> dict | None:
-    mine = await session.get(GameScore, email)
+def _better(game: str):
+    return GameBest.best.desc() if GAMES[game][0] else GameBest.best.asc()
+
+
+async def _standing(session: AsyncSession, game: str, email: str) -> dict | None:
+    mine = await session.get(GameBest, (game, email))
     if mine is None:
         return None
-    ahead = (await session.execute(select(func.count()).where(GameScore.best > mine.best))).scalar_one()
+    beats = GameBest.best > mine.best if GAMES[game][0] else GameBest.best < mine.best
+    ahead = (await session.execute(select(func.count()).where(GameBest.game == game, beats))).scalar_one()
     return {"rank": ahead + 1, "best": mine.best}
 
 
 @router.get("/game/leaderboard")
-async def game_leaderboard(email: str = Depends(current_email), session: AsyncSession = Depends(get_session)):
+async def game_leaderboard(
+    game: Game = "firefly",
+    limit: int = Query(5, ge=1, le=20),
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+):
     rows = (
         await session.execute(
-            select(GameScore, User.display_name)
-            .outerjoin(User, User.email == GameScore.email)
-            .order_by(GameScore.best.desc(), GameScore.achieved_at)
-            .limit(LEADERBOARD_SIZE)
+            select(GameBest, User.display_name)
+            .outerjoin(User, User.email == GameBest.email)
+            .where(GameBest.game == game)
+            .order_by(_better(game), GameBest.achieved_at)
+            .limit(limit)
         )
     ).all()
     top = [
-        {"name": name or score.email.split("@")[0], "best": score.best, "me": score.email == email}
-        for score, name in rows
+        {"name": name or best.email.split("@")[0], "best": best.best, "me": best.email == email}
+        for best, name in rows
     ]
-    return {"top": top, "mine": await _standing(session, email)}
+    return {"top": top, "mine": await _standing(session, game, email)}
 
 
 @router.post("/game/scores")
 async def game_score(body: ScoreIn, email: str = Depends(current_email), session: AsyncSession = Depends(get_session)):
-    mine = await session.get(GameScore, email)
-    record = mine is None or body.score > mine.best
+    mine = await session.get(GameBest, (body.game, email))
+    higher = GAMES[body.game][0]
+    record = mine is None or (body.score > mine.best if higher else body.score < mine.best)
     if mine is None:
-        session.add(GameScore(email=email, best=body.score))
+        session.add(GameBest(game=body.game, email=email, best=body.score))
     elif record:
         mine.best = body.score
         mine.achieved_at = utcnow()
     await session.commit()
-    return {"record": record, "mine": await _standing(session, email)}
+    return {"record": record, "mine": await _standing(session, body.game, email)}
 
 
 class MeIn(BaseModel):

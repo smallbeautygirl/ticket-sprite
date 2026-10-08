@@ -186,11 +186,12 @@ class Attachment(Base):
     interview: Mapped[Interview] = relationship(back_populates="attachments")
 
 
-class GameScore(Base):
-    """Someone's all-time best in the waiting game (螢火蟲收集詞彙), for its leaderboard."""
+class GameBest(Base):
+    """Someone's all-time best in one of the waiting games, for its leaderboard."""
 
-    __tablename__ = "game_scores"
+    __tablename__ = "game_bests"
 
+    game: Mapped[str] = mapped_column(String(16), primary_key=True)  # firefly | mines
     email: Mapped[str] = mapped_column(String(320), primary_key=True)
-    best: Mapped[int] = mapped_column(Integer)
+    best: Mapped[int] = mapped_column(Integer)  # firefly: words collected; mines: milliseconds to clear
     achieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

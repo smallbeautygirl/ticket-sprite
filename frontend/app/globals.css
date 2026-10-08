@@ -247,6 +247,18 @@ button.icon.danger:hover:not(:disabled) { color: var(--danger); background: var(
 .interview-main { flex: 999 1 560px; min-width: 0; }
 .interview-aside { flex: 1 1 280px; min-width: 0; position: sticky; top: 76px; }
 .interview-aside h2, .interview-aside h3 { margin: 0; }
+/* While a game is open its leaderboard sits in the page's left margin; the page widens to make room */
+.page:has(.interview-side:not(:empty)) { max-width: 1480px; }
+.interview-side { flex: 0 0 200px; min-width: 0; position: sticky; top: 76px; }
+.interview-side:empty { display: none; }
+.interview-side .game-board {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; box-shadow: var(--shadow);
+}
+.board-here.when-narrow { display: none; }
+@media (max-width: 1180px) {
+  .interview-side { display: none; }
+  .board-here.when-narrow { display: block; }
+}
 
 .stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .stepper li { display: flex; flex-direction: column; gap: 8px; font-size: 14px; color: var(--muted); }
@@ -344,6 +356,31 @@ button.example:hover:not(:disabled) { border-style: solid; border-color: var(--a
 .game-board li { display: grid; grid-template-columns: 1.5em 1fr auto; gap: 8px; padding: 2px 8px; border-radius: 6px; }
 .game-board li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-board li.me { background: var(--accent-soft); font-weight: 600; }
+.boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
+.boards .game-board ol { max-width: none; }
+.games { flex-basis: 100%; display: flex; flex-direction: column; gap: 10px; }
+/* 踩地雷: light tiles on the same night sky */
+.mines-stage { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 14px 12px 16px; color: var(--night-text); }
+.mines-bar { display: flex; gap: 16px; align-items: center; font-variant-numeric: tabular-nums; }
+.mines-bar .link { color: var(--night-text); }
+.mines-bar .link.on { color: var(--glow); text-decoration: underline; }
+.mines-result { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 14px; min-height: 36px; }
+.mines-result b { font-family: var(--font-display); font-weight: 400; font-size: 18px; color: var(--glow); }
+.mines-grid { display: flex; flex-direction: column; gap: 3px; }
+.mines-row { display: flex; gap: 3px; }
+.mine-cell {
+  width: 30px; height: 30px; padding: 0; border: none; border-radius: 6px; min-height: 0;
+  display: inline-grid; place-items: center;
+  background: #3b5546; color: var(--night-text); font: 700 15px/1 var(--font-display); cursor: pointer;
+}
+.mine-cell:hover:not(.open) { background: #48675a; }
+.mine-cell:focus-visible { outline: 2px solid var(--glow); outline-offset: 1px; }
+.mine-cell.open, .mine-cell.open:hover:not(:disabled) { background: var(--night-text); color: #1c2b22; cursor: default; }
+.mine-cell.boom, .mine-cell.boom:hover:not(:disabled) { background: #f3c1b6; }
+.mine-cell.n1 { color: #1f5e9e; } .mine-cell.n2 { color: #1f6b45; } .mine-cell.n3 { color: #b42323; }
+.mine-cell.n4 { color: #4b2f8a; } .mine-cell.n5 { color: #8a4b08; } .mine-cell.n6 { color: #0f6a6a; }
+.mine-cell.n7, .mine-cell.n8 { color: #1c2b22; }
+@media (max-width: 400px) { .mine-cell { width: 26px; height: 26px; font-size: 13px; } }
 .thinking h3 { font-size: 18px; }
 .reads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .reads code {

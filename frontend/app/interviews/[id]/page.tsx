@@ -7,6 +7,7 @@ import QuestionCard from "@/components/QuestionCard";
 import Markdown from "@/components/Markdown";
 import SpecPanel from "@/components/SpecPanel";
 import Sprite from "@/components/Sprite";
+import { SIDE_SLOT_ID } from "@/components/WaitingGames";
 import Thinking from "@/components/Thinking";
 import { announceReady } from "@/lib/ready";
 
@@ -217,6 +218,8 @@ export default function InterviewPage({ params }: { params: { id: string } }) {
       <Stepper status={d.status} />
 
       <div className="interview-cols">
+      {/* the waiting games put their leaderboard here, in the page's left margin */}
+      <aside id={SIDE_SLOT_ID} className="interview-side" />
       <div className="interview-main stack">
 
       <details className="card" open={d.questions.length === 0}>

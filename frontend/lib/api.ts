@@ -41,6 +41,15 @@ export interface Standing {
   best: number;
 }
 
+export type GameId = "firefly" | "mines";
+
+export const GAME_LABEL: Record<GameId, string> = { firefly: "螢火蟲收集詞彙", mines: "踩地雷" };
+
+/** A best as people read it: words collected, or seconds to clear the minefield. */
+export function formatBest(game: GameId, best: number): string {
+  return game === "mines" ? `${(best / 1000).toFixed(1)} 秒` : `${best} 個詞`;
+}
+
 export interface Leaderboard {
   top: { name: string; best: number; me: boolean }[];
   mine: Standing | null;
@@ -198,9 +207,9 @@ export const api = {
   login: (email: string, password: string) =>
     request<{ email: string }>("/auth/login", { method: "POST", body: json({ email, password }) }),
   logout: () => request("/auth/logout", { method: "POST" }),
-  leaderboard: () => request<Leaderboard>("/game/leaderboard"),
-  saveScore: (score: number) =>
-    request<{ record: boolean; mine: Standing }>("/game/scores", { method: "POST", body: json({ score }) }),
+  leaderboard: (game: GameId, limit = 5) => request<Leaderboard>(`/game/leaderboard?game=${game}&limit=${limit}`),
+  saveScore: (game: GameId, score: number) =>
+    request<{ record: boolean; mine: Standing }>("/game/scores", { method: "POST", body: json({ game, score }) }),
   me: () => request<Me>("/me"),
   setDefaultRole: (default_role: Role) => request("/me", { method: "PUT", body: json({ default_role }) }),
   connectAdo: (pat: string, expires_on: string | null) =>
