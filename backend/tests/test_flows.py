@@ -576,6 +576,19 @@ async def test_pm_and_fae_specs_are_requests_not_designs(app, deps, vivian, llm)
     assert "not a design document" not in spec_prompt(rd_ctx)
 
 
+async def test_pm_and_fae_are_asked_only_what_they_can_decide(app, deps, vivian, llm):
+    for role in ("pm", "fae", "rd"):
+        await vivian.post("/api/interviews", data={"role": role, "request_type": "feature", "text": "x",
+                                                   "question_budget": "brief"})
+    await deps.drain()
+    pm_ctx, fae_ctx, rd_ctx = (ctx for kind, ctx in llm.calls if kind == "round")
+    for ctx in (pm_ctx, fae_ctx):
+        assert "leave it to RD" in round_prompt(ctx)
+        assert "decisions RD cannot build without" not in round_prompt(ctx)
+    assert "leave it to RD" not in round_prompt(rd_ctx)
+    assert "decisions RD cannot build without" in round_prompt(rd_ctx)
+
+
 async def test_regenerating_a_draft_spec_replaces_it(app, deps, vivian, llm):
     iid = (await vivian.post("/api/interviews", data={"role": "pm", "request_type": "feature", "text": "x",
                                                       "question_budget": "none"})).json()["id"]

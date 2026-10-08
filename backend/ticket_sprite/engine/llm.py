@@ -220,15 +220,30 @@ def round_prompt(ctx: InterviewContext) -> str:
             "nothing is left. Do not repeat questions already asked. When a question extends an earlier "
             "answer, set followup_of to that question's ref."
         )
+    brief = ctx.role in ("pm", "fae")
+    if brief:
+        task += "\n\n" + BRIEF_QUESTION_RULE
     if ctx.question_budget is not None:
         left = max(0, ctx.question_budget - ctx.asked)
+        worth = "decisions only the Requester can make" if brief else "decisions RD cannot build without"
         task += (
             f"\n\nQuestion budget: the Requester chose at most {ctx.question_budget} questions for the whole "
             f"interview; {ctx.asked} asked so far, so at most {left} more (premises count). Spend them on the "
-            "decisions RD cannot build without, core first; leave lesser branches unasked and do not merge "
+            f"{worth}, core first; leave lesser branches unasked and do not merge "
             "several decisions into one question to save budget. If none are left, set done=true."
         )
     return f"{_context_text(ctx)}\n\n{task}\nRespond with the JSON object only."
+
+
+# An FAE asked which table a keyword should match answers 不知道: that choice is RD's
+BRIEF_QUESTION_RULE = (
+    "The Requester is not the one who builds it. Ask only what they know or decide: the Customer's need "
+    "and words, who uses it and in what scenario, what is in or out of scope, what counts as done, "
+    "urgency, and for an FAE the site facts (deployment, versions, data seen on site). Never ask how to "
+    "build it (data source, table, API, where filtering happens, performance trade-offs): leave it to RD, "
+    "and do not spend a question on it. Keep each body to two or three short sentences in product "
+    "language, with no file paths, endpoints, SQL or code identifiers; put the evidence you found in ai_note."
+)
 
 
 # PM and FAE hand RD a request, not a design: RD reads the code and decides how
