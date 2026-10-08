@@ -124,7 +124,7 @@ export default function Minesweeper() {
   return (
     <div className="game">
       {/* The classic Windows look: a raised grey panel, red LED counters, the face to restart */}
-      <div className="ms">
+      <div className={over ? "ms over" : "ms"}>
         <div className="ms-head">
           <span className="ms-led" aria-label={`剩下 ${flagsLeft(board)} 面旗子`}>{led(flagsLeft(board))}</span>
           <button className="ms-face" aria-label="重新開始" onClick={restart}>

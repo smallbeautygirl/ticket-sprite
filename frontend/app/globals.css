@@ -359,40 +359,49 @@ button.example:hover:not(:disabled) { border-style: solid; border-color: var(--a
 .boards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; align-items: start; }
 .boards .game-board ol { max-width: none; }
 .games { flex-basis: 100%; display: flex; flex-direction: column; gap: 10px; }
-/* 踩地雷: the classic Windows look (grey bevels, red LEDs), the same in both themes */
+/* 踩地雷: the classic Windows layout (bevelled tiles, LED counters, the face) in the sprite's sage and
+   firefly colours. Like the firefly's night sky it looks the same in both themes. */
 .ms {
-  align-self: center; display: inline-flex; flex-direction: column; gap: 6px; padding: 6px;
-  background: #c0c0c0; border: 3px solid; border-color: #fff #808080 #808080 #fff; user-select: none;
+  --ms-tile: #cfe0cc; --ms-light: #f4f9f2; --ms-shade: #8fa893; --ms-open: #e8f1e5; --ms-line: #b7cbb8;
+  align-self: center; display: inline-flex; flex-direction: column; gap: 8px; padding: 8px;
+  background: var(--ms-tile); border: 3px solid; border-color: var(--ms-light) var(--ms-shade) var(--ms-shade) var(--ms-light);
+  border-radius: var(--radius-sm); user-select: none;
 }
 .ms-head {
-  display: flex; align-items: center; justify-content: space-between; padding: 4px 5px;
-  border: 2px solid; border-color: #808080 #fff #fff #808080;
+  display: flex; align-items: center; justify-content: space-between; padding: 5px 6px; border-radius: 8px;
+  border: 2px solid; border-color: var(--ms-shade) var(--ms-light) var(--ms-light) var(--ms-shade);
 }
 .ms-led {
-  min-width: 3ch; padding: 1px 3px; background: #000; color: #ff1e1e; text-shadow: 0 0 4px rgba(255, 30, 30, 0.6);
-  font: 700 24px/1 var(--font-mono); letter-spacing: 1px; font-variant-numeric: tabular-nums;
+  min-width: 3ch; padding: 2px 5px; border-radius: 6px; background: var(--sprite-ink); color: var(--glow);
+  text-shadow: 0 0 6px rgba(244, 197, 66, 0.55); font: 700 22px/1 var(--font-mono); letter-spacing: 1px; font-variant-numeric: tabular-nums;
 }
 button.ms-face, button.ms-face:hover:not(:disabled) {
-  width: 32px; height: 32px; min-height: 0; padding: 0; display: inline-grid; place-items: center; font-size: 19px; line-height: 1;
-  background: #c0c0c0; border: 2px solid; border-color: #fff #808080 #808080 #fff; border-radius: 0;
+  width: 34px; height: 34px; min-height: 0; padding: 0; display: inline-grid; place-items: center; font-size: 19px; line-height: 1;
+  background: var(--ms-tile); border: 2px solid; border-color: var(--ms-light) var(--ms-shade) var(--ms-shade) var(--ms-light);
+  border-radius: 8px; cursor: pointer;
 }
-button.ms-face:active { border-color: #808080 #fff #fff #808080; }
-.ms-grid { display: flex; flex-direction: column; border: 3px solid; border-color: #808080 #fff #fff #808080; }
+button.ms-face:active { border-color: var(--ms-shade) var(--ms-light) var(--ms-light) var(--ms-shade); }
+.ms-grid { display: flex; flex-direction: column; border: 3px solid; border-color: var(--ms-shade) var(--ms-light) var(--ms-light) var(--ms-shade); }
 .ms-row { display: flex; }
 button.ms-cell, button.ms-cell:hover:not(:disabled) {
   width: 28px; height: 28px; min-height: 0; padding: 0; display: inline-grid; place-items: center;
-  background: #c0c0c0; color: #000; border: 3px solid; border-color: #fff #808080 #808080 #fff; border-radius: 0;
-  font: 700 17px/1 Tahoma, Verdana, "Noto Sans TC", sans-serif; cursor: default;
+  background: var(--ms-tile); color: var(--sprite-ink); border: 3px solid;
+  border-color: var(--ms-light) var(--ms-shade) var(--ms-shade) var(--ms-light); border-radius: 0;
+  font: 700 17px/1 var(--font-display); cursor: pointer;
 }
-button.ms-cell:focus-visible { outline: 2px solid #000; outline-offset: -4px; }
+button.ms-cell:not(.open):hover:not(:disabled) { background: #d9e8d6; }
+button.ms-cell:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
 button.ms-cell.open, button.ms-cell.open:hover:not(:disabled) {
-  border: none; border-right: 1px solid #808080; border-bottom: 1px solid #808080; font-size: 17px;
+  background: var(--ms-open); border: none; border-right: 1px solid var(--ms-line); border-bottom: 1px solid var(--ms-line);
+  cursor: default;
 }
-button.ms-cell.blast, button.ms-cell.blast:hover:not(:disabled) { background: #ff0000; }
-.ms-cell.n1 { color: #0000ff; } .ms-cell.n2 { color: #008000; } .ms-cell.n3 { color: #ff0000; } .ms-cell.n4 { color: #000080; }
-.ms-cell.n5 { color: #800000; } .ms-cell.n6 { color: #008080; } .ms-cell.n7 { color: #000; } .ms-cell.n8 { color: #808080; }
+/* a number can be clicked once its flags are placed (opens the rest around it) */
+button.ms-cell.open[class*=" n"], button.ms-cell.open[class*=" n"]:hover:not(:disabled) { cursor: pointer; }
+.ms.over button.ms-cell, .ms.over button.ms-cell:hover:not(:disabled) { cursor: default; }
+button.ms-cell.blast, button.ms-cell.blast:hover:not(:disabled) { background: #f0907c; }
+.ms-cell.n1 { color: #2f5fb3; } .ms-cell.n2 { color: #2e7d4f; } .ms-cell.n3 { color: #c0392b; } .ms-cell.n4 { color: #23407a; }
+.ms-cell.n5 { color: #8a4b08; } .ms-cell.n6 { color: #0f6a6a; } .ms-cell.n7 { color: #1c2b22; } .ms-cell.n8 { color: #56695c; }
 .ms-cell:not(.open) { font-size: 14px; }
-@media (max-width: 400px) { button.ms-cell, button.ms-cell:hover:not(:disabled) { width: 26px; height: 26px; } }
 .thinking h3 { font-size: 18px; }
 .reads { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .reads code {
