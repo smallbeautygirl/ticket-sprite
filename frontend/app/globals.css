@@ -242,7 +242,7 @@ button.icon.danger:hover:not(:disabled) { color: var(--danger); background: var(
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Interview page */
-.page:has(.interview) { max-width: 1200px; }
+.page:has(.interview), .page:has(.work) { max-width: 1200px; }
 .interview-cols { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
 .interview-main { flex: 999 1 560px; min-width: 0; }
 .interview-aside { flex: 1 1 280px; min-width: 0; position: sticky; top: 76px; }
@@ -454,22 +454,44 @@ button.ms-cell.blast, button.ms-cell.blast:hover:not(:disabled) { background: #f
 .body .markdown ul, .body .markdown ol { margin: 4px 0 8px; padding-left: 20px; }
 .markdown { overflow-wrap: anywhere; }
 
-/* Current Work: what a PM chases on top, then one lane per person in RD */
-.work h2 { font-size: 20px; margin: 0; }
-.work h3 { font-family: var(--font-display); font-weight: 400; font-size: 17px; margin: 0; display: flex; align-items: baseline; gap: 8px; }
-.work-lead { font-size: 16px; margin: -4px 0 4px; color: var(--text-2); }
-.work-lead strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-.work-chase { box-shadow: var(--shadow-lift); border-color: var(--border-strong); padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
-.work-chase-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 24px; align-items: start; }
-.work-chase-group > p { margin: 2px 0 8px; }
-.work-lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: start; }
-.work-lane { display: flex; flex-direction: column; gap: 6px; }
-.work-items { list-style: none; margin: 0; padding: 0; }
-.work-item { display: flex; flex-direction: column; gap: 3px; padding: 8px 0; border-top: 1px solid var(--border); }
-.work-items > .work-item:first-child { border-top: none; padding-top: 2px; }
-.work-title { color: var(--text); line-height: 1.45; }
+/* Current Work: a strip of what a PM chases, then one row per person, tickets moving left to right */
+.work h2 { font-family: var(--font-display); font-weight: 400; font-size: 20px; margin: 0; }
+.work-chase { box-shadow: var(--shadow-lift); border-color: var(--border-strong); padding: 14px 20px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 24px; font-size: 14px; color: var(--text-2); }
+.work-chase strong { color: var(--text); font-weight: 600; }
+.work-chase .badge.warn { font-size: 13px; padding: 2px 10px; }
+.work-table-box { padding: 0; overflow-x: auto; }
+.work-table { width: 100%; min-width: 960px; border-collapse: collapse; table-layout: fixed; }
+.work-table caption { text-align: left; padding: 14px 18px 4px; font-size: 13px; color: var(--muted); }
+.work-table thead th { text-align: left; padding: 10px 12px; font-family: var(--font-display); font-weight: 400; font-size: 17px; border-bottom: 1px solid var(--border); }
+.work-table th.who { width: 150px; padding-left: 18px; }
+.work-table tbody th.who { position: sticky; left: 0; z-index: 1; background: var(--surface); }
+.work-table th.done { width: 210px; }
+.work-table .doing { background: var(--accent-soft); }
+.work-table tbody td, .work-table tbody th { vertical-align: top; padding: 10px 12px; border-top: 1px solid var(--border); }
+.work-table tbody th.who { text-align: left; padding: 14px 12px 14px 18px; font-weight: 400; }
+.work-table tbody td.doing { background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+.work-table .name { display: block; font-family: var(--font-display); font-size: 17px; }
+.work-table .sum { display: block; font-size: 12px; color: var(--muted); word-break: keep-all; }
+.work-cell { display: flex; flex-direction: column; gap: 6px; }
+.work-ticket { overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 2px; padding: 7px 11px; border-radius: var(--radius-sm); font-size: 14px; line-height: 1.4; }
+.work-ticket.quiet { background: var(--surface-2); }
+.work-ticket.raised { background: var(--surface); border: 1px solid var(--border); }
+.work-ticket.mine { border: 2px solid var(--accent); padding: 6px 10px; background: var(--surface); }
+.work-title { color: var(--text); }
 .work-title:hover { color: var(--accent); }
-.work-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; color: var(--muted); }
-.work-meta a.badge:hover { text-decoration: none; filter: brightness(0.95); }
-.work-id { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
-.work-more .work-items { margin-top: -4px; }
+.work-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 12px; color: var(--muted); }
+.work-meta .pr.merged { color: var(--ok); }
+.work-meta .pr.open { color: var(--accent-strong); }
+.work-meta .pr.closed { color: var(--muted); }
+.work-id { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); }
+.work-done { overflow-wrap: anywhere; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.work-done a { color: var(--text-2); line-height: 1.45; }
+.work-done a span { color: var(--muted); }
+.work-done button { align-self: flex-start; }
+.work-unclaimed { border-radius: var(--radius-sm); background: var(--warn-soft); color: var(--warn); font-size: 14px; line-height: 1.4; }
+.work-unclaimed > summary { cursor: pointer; padding: 8px 11px; list-style: none; }
+.work-unclaimed > summary::-webkit-details-marker { display: none; }
+.work-unclaimed > summary span { display: block; font-size: 12px; text-decoration: underline; }
+.work-unclaimed ul { margin: 0; padding: 0 11px 10px 26px; font-size: 13px; }
+.work-unclaimed li { margin-top: 4px; }
+.work-unclaimed a { color: var(--warn); }

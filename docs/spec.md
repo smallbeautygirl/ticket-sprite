@@ -104,11 +104,9 @@ PM / FAE / RD 遇到一個需求時，在網頁上被 AI 拷問（grill-with-doc
 
 ### 3.9 Current Work（畫面上稱「RD 在做什麼」）
 - 頁面 `/work`，給 PM 一眼看懂：
-  1. 一句話摘要：幾個人手上有幾張在做（Active）、幾張測試中、幾張排隊（New）。
-  2. 「你可以去追的」（唯一浮起的區塊）：你提的需求（透過小精靈開、Requester 是你的 Ticket，附目前進度與回到 Interview 的連結）、測試中可以去試（Active 與 New 以外、未結案的）、還沒人接（New 且沒有 Assigned To）。
-  3. 「誰在做什麼」：Active 的 Ticket 依 Assigned To 分欄，件數多的在前，未指派的放最後。
-  4. 排隊中（New）與最近完成（14 天內 Closed / Done）預設收起。Removed 不列。
-  每張 Ticket 顯示標題（連到 ADO）、#id、PR 狀態。
+  1. 「你可以去追的」（唯一浮起的一條）：你提的需求（透過小精靈開、Requester 是你、未結案的 Ticket 與它的進度）、幾張測試中可以去試、幾張沒人接（New 且沒有 Assigned To）。
+  2. 一張表：每列一個人（Assigned To；在做多的在前，「沒人接」放最後），由左到右是接下來（New）、在做（Active）、測試中（其他未結案狀態）、最近完成（14 天內 Closed / Done，先列 3 張）。你提的 Ticket 加框並連回 Interview；沒人接的 New 收成一格琥珀提醒，可展開。Removed 不列。
+  每張 Ticket 顯示標題（連到 ADO）、#id、PR 狀態。手機上表格左右捲動，人名固定在左邊。
 - PR：讀 Product 的 GitHub repo（`MIDDLEWARE_GITHUB_REPOS` 等）最近更新的 100 個 PR，標題或內文寫了 `AB#<id>` 的就掛在那張 Ticket 上，顯示審查中／已合併／已關閉。沒設 `GITHUB_TOKEN`（唯讀，Pull requests: Read）就只列 Ticket；GitHub 讀不到也不影響 Ticket。
 - ADO 用檢視者自己的 ADO Credential 讀取；結果每個 Product 快取 10 分鐘，所有人共用，所以沒連結 ADO 的人在快取有效時也看得到。
 - 拷問：每一輪與產出 Spec 時，把 Current Work（每張一行）放進 context。Request 跟某張 Ticket 重疊時，AI 要指出 #id、問是同一件事、延伸還是另一件事，並在 Spec 的背景提到。Requester 沒連結 ADO 時照常拷問，只是沒有這份清單。
