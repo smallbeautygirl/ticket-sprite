@@ -24,6 +24,8 @@ from ..products import products
 from ..engine.templates import DEFAULT_AUDIENCE, DEFAULT_QUESTION_BUDGET, DEFAULT_TEMPLATE, QUESTION_BUDGETS, TEMPLATES
 from ..models import Attachment, GameBest, Interview, Question, QuestionStatus, RequestType, Role, User, utcnow
 from ..services import Deps, FlowError
+from ..work import RECENTLY_CLOSED_DAYS
+from ..work import as_json as work_json
 
 router = APIRouter(prefix="/api")
 
@@ -336,6 +338,35 @@ async def ado_people(
     out = [p.__dict__ for p in people]
     deps.people_cache = (time.monotonic(), out)
     return out
+
+
+@router.get("/work")
+async def current_work(
+    product: str = "middleware",
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+    deps: Deps = Depends(get_deps),
+):
+    """Current Work: the Product's open and lately closed tickets under its Parent, with their PRs."""
+    if product not in products(settings):
+        raise HTTPException(status_code=404, detail=f"未知的 Product: {product}")
+    p = product_of(settings, product)
+    try:
+        work = await services.current_work_for(deps, p, await _user(session, email))
+    except AdoCredentialMissing as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AdoError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "product": p.id,
+        "product_label": p.label,
+        "parent_id": work.parent_id,
+        "parent_url": AdoClient(settings, {}).work_item_web_url(work.parent_id),
+        "github": work.github,
+        "closed_days": RECENTLY_CLOSED_DAYS,
+        "items": work_json(work),
+    }
 
 
 # ---------------------------------------------------------------- meta

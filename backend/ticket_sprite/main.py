@@ -55,6 +55,7 @@ def create_app(
             llm=chosen_llm,
             notifier=notifier or Notifier(settings),
             ado_transport=getattr(app.state, "ado_transport", None),
+            github_transport=getattr(app.state, "github_transport", None),
         )
         jobs: list[asyncio.Task] = []
         if background_jobs:

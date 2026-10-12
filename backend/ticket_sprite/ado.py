@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
+from datetime import datetime
 from urllib.parse import quote
 
 import httpx
@@ -99,6 +100,28 @@ class WorkItemSummary:
 
 
 @dataclass(frozen=True)
+class ChildWorkItem:
+    id: int
+    title: str
+    work_item_type: str
+    state: str
+    assignee: str | None
+    iteration: str
+    closed: datetime | None
+    url: str
+
+
+CHILD_FIELDS = (
+    "System.Id,System.Title,System.WorkItemType,System.State,System.AssignedTo,System.IterationPath,"
+    "Microsoft.VSTS.Common.ClosedDate"
+)
+
+
+def _when(value: str | None) -> datetime | None:
+    return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+
+
+@dataclass(frozen=True)
 class Person:
     display_name: str
     email: str
@@ -181,6 +204,49 @@ class AdoClient:
                     title=f.get("System.Title", ""),
                     work_item_type=f.get("System.WorkItemType", ""),
                     state=f.get("System.State", ""),
+                )
+            )
+        return out
+
+    async def children(self, parent_id: int) -> list[ChildWorkItem]:
+        """Every work item directly under the Parent, whatever its state."""
+        async with self._client() as c:
+            resp = await c.get(
+                f"{self._org_url}/_apis/wit/workitems/{parent_id}",
+                params={"$expand": "relations", "api-version": API_VERSION},
+            )
+            self._raise_for(resp)
+            ids = [
+                int(r["url"].rsplit("/", 1)[1])
+                for r in resp.json().get("relations") or []
+                if r.get("rel") == "System.LinkTypes.Hierarchy-Forward"
+            ]
+            items: list[dict] = []
+            for start in range(0, len(ids), 200):  # the batch endpoint takes at most 200 ids
+                resp = await c.get(
+                    f"{self._org_url}/_apis/wit/workitems",
+                    params={
+                        "ids": ",".join(str(i) for i in ids[start : start + 200]),
+                        "fields": CHILD_FIELDS,
+                        "errorPolicy": "omit",
+                        "api-version": API_VERSION,
+                    },
+                )
+                self._raise_for(resp)
+                items += [i for i in resp.json().get("value") or [] if i]
+        out = []
+        for item in items:
+            f = item.get("fields", {})
+            out.append(
+                ChildWorkItem(
+                    id=item["id"],
+                    title=f.get("System.Title", ""),
+                    work_item_type=f.get("System.WorkItemType", ""),
+                    state=f.get("System.State", ""),
+                    assignee=(f.get("System.AssignedTo") or {}).get("displayName"),
+                    iteration=f.get("System.IterationPath", "").rsplit("\\", 1)[-1],
+                    closed=_when(f.get("Microsoft.VSTS.Common.ClosedDate")),
+                    url=self.work_item_web_url(item["id"]),
                 )
             )
         return out

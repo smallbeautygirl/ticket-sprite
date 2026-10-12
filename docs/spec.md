@@ -102,6 +102,12 @@ PM / FAE / RD 遇到一個需求時，在網頁上被 AI 拷問（grill-with-doc
 - 專用 clone：`KNOWLEDGE_ROOT/lighthouse-saas-api`，追蹤 `main`，每小時 `git pull --ff-only`；Product 指向其中的 `apps/visionai_middleware`。
 - 初次可由本機 `/opt/lighthouse-saas-api` clone（`git clone --branch main`）。
 
+### 3.9 Current Work（進行中的工作）
+- 頁面 `/work`：Product 的 Parent 底下的 Ticket，依「進行中（Active）→ 測試中（其他未結案狀態）→ 尚未開始（New）→ 最近完成」分組；最近完成指 14 天內 Closed / Done 的，Removed 不列。每列顯示 #id、標題、Assigned To、Iteration（或完成日），連到 ADO。
+- PR：讀 Product 的 GitHub repo（`MIDDLEWARE_GITHUB_REPOS` 等）最近更新的 100 個 PR，標題或內文寫了 `AB#<id>` 的就掛在那張 Ticket 上，顯示審查中／已合併／已關閉。沒設 `GITHUB_TOKEN`（唯讀，Pull requests: Read）就只列 Ticket；GitHub 讀不到也不影響 Ticket。
+- ADO 用檢視者自己的 ADO Credential 讀取；結果每個 Product 快取 10 分鐘，所有人共用，所以沒連結 ADO 的人在快取有效時也看得到。
+- 拷問：每一輪與產出 Spec 時，把 Current Work（每張一行）放進 context。Request 跟某張 Ticket 重疊時，AI 要指出 #id、問是同一件事、延伸還是另一件事，並在 Spec 的背景提到。Requester 沒連結 ADO 時照常拷問，只是沒有這份清單。
+
 ## 4. 非功能
 - 部署：本 VM，docker compose（postgres + backend + frontend）。
 - 技術：FastAPI + SQLAlchemy (async) + Postgres；Anthropic Python SDK；Next.js。

@@ -10,6 +10,7 @@ import logging
 import mimetypes
 import re
 import shutil
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -26,7 +27,9 @@ from .ado import (
     SEVERITIES,
     WORK_ITEM_TYPES,
     AdoClient,
+    AdoCredentialMissing,
     AdoCredentialProvider,
+    AdoError,
 )
 from .config import Settings
 from .engine.llm import (
@@ -56,7 +59,8 @@ from .models import (
 )
 from .notify import Notifier, mention_for
 from .products import product as product_of
-from .products import products
+from .products import Product, products
+from .work import CurrentWork, GitHub, current_work, for_interviewer
 
 log = logging.getLogger(__name__)
 
@@ -85,6 +89,9 @@ class Deps:
     running: dict[str, asyncio.Task] = field(default_factory=dict)
     # recent ADO assignees for the Assignee picker: (fetched at, people)
     people_cache: tuple[float, list] | None = None
+    github_transport: httpx.AsyncBaseTransport | None = None
+    # Product id → its Current Work: (fetched at, work); shared across users like people_cache
+    work_cache: dict[str, tuple[float, CurrentWork]] = field(default_factory=dict)
 
     def spawn(self, interview_id: str, coro) -> asyncio.Task:
         task = asyncio.create_task(coro)
@@ -303,6 +310,37 @@ def _within_budget(drafts: list[DraftQuestion], left: int | None) -> list[DraftQ
     return [d for i, d in enumerate(drafts) if i in keep]
 
 
+WORK_CACHE_SECONDS = 600
+
+
+async def current_work_for(deps: Deps, product: Product, user: User | None) -> CurrentWork:
+    """The Product's Current Work, fetched as `user` unless someone fetched it in the last few minutes."""
+    cached = deps.work_cache.get(product.id)
+    if cached and time.monotonic() - cached[0] < WORK_CACHE_SECONDS:
+        return cached[1]
+    ado = AdoClient(deps.settings, AdoCredentialProvider(deps.settings).auth_header(user), deps.ado_transport)
+    github = GitHub(deps.settings.github_token, deps.github_transport) if deps.settings.github_token else None
+    work = await current_work(ado, github, product)
+    deps.work_cache[product.id] = (time.monotonic(), work)
+    return work
+
+
+async def context_for(deps: Deps, session: AsyncSession, interview: Interview) -> InterviewContext:
+    """build_context plus the Current Work, which the interviewer checks the Request against."""
+    ctx = build_context(interview)
+    product = product_of(deps.settings, interview.product)
+    if not product.default_parent_id:
+        return ctx
+    try:
+        work = await current_work_for(deps, product, await session.get(User, interview.requester_email))
+    except (AdoCredentialMissing, AdoError, httpx.HTTPError) as exc:
+        # The interview goes on without it; the Requester may simply not have connected ADO yet
+        log.info("no Current Work for interview %s: %s", interview.id, exc)
+        return ctx
+    ctx.current_work = for_interviewer(work) or None
+    return ctx
+
+
 async def advance(deps: Deps, interview_id: str) -> None:
     """Ask the next round if the current one is fully resolved."""
     async with deps.sessionmaker() as session:
@@ -322,7 +360,8 @@ async def advance(deps: Deps, interview_id: str) -> None:
 
         progress = deps.progress[interview.id] = EngineProgress()
         try:
-            result = await deps.llm.next_round(build_context(interview), knowledge_for(deps, interview), progress)
+            ctx = await context_for(deps, session, interview)
+            result = await deps.llm.next_round(ctx, knowledge_for(deps, interview), progress)
         except EngineError as exc:
             interview.engine_busy = False
             interview.engine_error = str(exc)
@@ -694,7 +733,8 @@ async def generate_spec(deps: Deps, interview_id: str, as_revision: bool = False
         interview = await load_interview(session, interview_id)
         progress = deps.progress[interview.id] = EngineProgress()
         try:
-            result = await deps.llm.write_spec(build_context(interview), knowledge_for(deps, interview), progress)
+            ctx = await context_for(deps, session, interview)
+            result = await deps.llm.write_spec(ctx, knowledge_for(deps, interview), progress)
         except EngineError as exc:
             interview.engine_error = str(exc)
         except Exception:

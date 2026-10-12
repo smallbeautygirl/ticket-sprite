@@ -67,6 +67,7 @@ class InterviewContext:
     summary: str | None = None
     question_budget: int | None = None
     audience: str = "rd"
+    current_work: str | None = None  # one line per ticket under the Product's Parent (work.for_interviewer)
 
     @property
     def asked(self) -> int:
@@ -201,8 +202,20 @@ def _context_text(ctx: InterviewContext) -> str:
         f"Audience: the Spec is for {AUDIENCE_NOTE[Role(ctx.audience)]} Ask what that reader needs "
         "and write the Spec for them.\n\n"
         f"<request>\n{ctx.request_text}\n</request>\n\n"
-        f"Current understanding: {ctx.summary or '(none yet)'}\n\n"
+        + _current_work_text(ctx)
+        + f"Current understanding: {ctx.summary or '(none yet)'}\n\n"
         f"<interview_so_far>\n{render_history(ctx)}\n</interview_so_far>"
+    )
+
+
+def _current_work_text(ctx: InterviewContext) -> str:
+    if not ctx.current_work:
+        return ""
+    return (
+        f"<current_work>\n{ctx.current_work}\n</current_work>\n"
+        "Current Work: tickets open or closed in the last two weeks under this product's Parent. When the Request "
+        "overlaps one, name it (#id) and ask whether this is the same work, an extension of it, or separate; do "
+        "not ask what that ticket already settles. In the Spec, mention overlapping tickets in 背景.\n\n"
     )
 
 

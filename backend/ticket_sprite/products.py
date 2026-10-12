@@ -29,6 +29,7 @@ class Product:
     branch: str = "main"
     subdir: str = ""
     default_parent_id: int = 0
+    github_repos: tuple[str, ...] = ()  # owner/name; their PRs that name a ticket with AB# show in Current Work
 
     def root(self, settings: Settings) -> Path:
         return settings.knowledge_root / self.clone_dir / self.subdir
@@ -68,6 +69,10 @@ TAIPEI_MRT = Product(
 )
 
 
+def _repos(csv: str) -> tuple[str, ...]:
+    return tuple(r.strip() for r in csv.split(",") if r.strip())
+
+
 def _all(settings: Settings) -> dict[str, Product]:
     return {
         MIDDLEWARE.id: replace(
@@ -76,6 +81,7 @@ def _all(settings: Settings) -> dict[str, Product]:
             branch=settings.knowledge_branch,
             subdir=settings.knowledge_product_subdir,
             default_parent_id=settings.ado_default_parent_id,
+            github_repos=_repos(settings.middleware_github_repos),
         ),
         TAIPEI_MRT.id: replace(
             TAIPEI_MRT,
@@ -83,6 +89,7 @@ def _all(settings: Settings) -> dict[str, Product]:
             branch=settings.taipei_mrt_branch,
             subdir=settings.taipei_mrt_subdir,
             default_parent_id=settings.taipei_mrt_parent_id,
+            github_repos=_repos(settings.taipei_mrt_github_repos),
         ),
     }
 

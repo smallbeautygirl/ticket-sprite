@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     taipei_mrt_subdir: str = "apps/taipei_MRT_simulation"
     taipei_mrt_parent_id: int = 41490
 
+    # --- GitHub: PR state for Current Work. A read-only token (Pull requests: Read) on these repos ---
+    github_token: str = ""
+    middleware_github_repos: str = "linkervision/lighthouse-saas-api,linkervision/deliver-heimdall"
+    taipei_mrt_github_repos: str = "linkervision/lighthouse-saas-api"
+
     # --- attachments ---
     upload_dir: Path = Path("./uploads")
     max_upload_bytes: int = 20 * 1024 * 1024

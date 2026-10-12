@@ -55,6 +55,37 @@ export interface Leaderboard {
   mine: Standing | null;
 }
 
+export interface WorkPull {
+  repo: string;
+  number: number;
+  title: string;
+  state: "open" | "merged" | "closed";
+  url: string;
+}
+
+export interface WorkEntry {
+  id: number;
+  title: string;
+  type: string;
+  state: string;
+  assignee: string | null;
+  iteration: string;
+  closed_on: string | null;
+  url: string;
+  prs: WorkPull[];
+}
+
+/** Current Work: the Product's open and lately closed tickets under its Parent. */
+export interface CurrentWork {
+  product: string;
+  product_label: string;
+  parent_id: number;
+  parent_url: string;
+  github: boolean;
+  closed_days: number;
+  items: WorkEntry[];
+}
+
 export interface InterviewSummary {
   id: string;
   product: string;
@@ -218,6 +249,7 @@ export const api = {
   meta: () => request<Meta>("/meta"),
   boardParents: () => request<WorkItem[]>("/ado/parents"),
   adoPeople: () => request<Person[]>("/ado/people"),
+  currentWork: (product: string) => request<CurrentWork>(`/work?product=${encodeURIComponent(product)}`),
   searchWorkItems: (q: string) => request<WorkItem[]>(`/ado/work-items?q=${encodeURIComponent(q)}`),
 
   listInterviews: (scope: "all" | "mine" | "for-me") => request<InterviewSummary[]>(`/interviews?scope=${scope}`),
