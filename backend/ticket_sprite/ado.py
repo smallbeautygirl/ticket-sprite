@@ -7,7 +7,6 @@ Entra delegated OAuth later without touching callers.
 from __future__ import annotations
 
 import base64
-import logging
 from dataclasses import dataclass
 from urllib.parse import quote
 
@@ -19,7 +18,6 @@ from .models import RequestType, User
 
 API_VERSION = "7.1"
 
-log = logging.getLogger(__name__)
 
 # Where a work item keeps the Spec (Bug forms show Repro Steps)
 DESCRIPTION_FIELDS = {"System.Description", "Microsoft.VSTS.TCM.ReproSteps"}
@@ -326,12 +324,6 @@ class AdoClient:
         items = [i for i in resp.json().get("value") or [] if i]
         return items[0].get("fields", {}).get("System.IterationPath") if items else None
 
-    async def _existing_tags(self, c: httpx.AsyncClient) -> set[str]:
-        resp = await c.get(f"{self._project_url}/_apis/wit/tags", params={"api-version": API_VERSION})
-        if resp.status_code >= 400:
-            return set()
-        return {(t.get("name") or "").lower() for t in resp.json().get("value") or []}
-
     async def upload_attachment(self, filename: str, data: bytes) -> str:
         async with self._client() as c:
             resp = await c.post(
@@ -350,7 +342,6 @@ class AdoClient:
         title: str,
         description_html: str,
         parent_id: int | None,
-        tags: list[str],
         priority: int | None,
         severity: str | None,
         attachment_urls: list[str],
@@ -361,7 +352,6 @@ class AdoClient:
             {"op": "add", "path": "/fields/System.Title", "value": title},
             {"op": "add", "path": "/fields/System.Description", "value": description_html},
             {"op": "add", "path": "/fields/System.AreaPath", "value": self._s.ado_area_path},
-            {"op": "add", "path": "/fields/System.Tags", "value": "; ".join(tags)},
         ]
         if wi_type == "Bug":
             # Bug forms show Repro Steps rather than Description
@@ -391,15 +381,6 @@ class AdoClient:
                 # Follow the Parent onto its sprint: the root iteration never shows on the taskboard
                 ops.append({"op": "add", "path": "/fields/System.IterationPath", "value": iteration})
             resp = await self._post_work_item(c, wi_type, ops)
-            if resp.status_code == 403 and "TF401289" in resp.text and tags:
-                # Not allowed to create tag definitions: keep only the tags the project already has
-                known = await self._existing_tags(c)
-                kept = [t for t in tags if t.lower() in known]
-                log.info("no permission to create tags; dropped %s", [t for t in tags if t not in kept])
-                ops = [op for op in ops if op["path"] != "/fields/System.Tags"]
-                if kept:
-                    ops.append({"op": "add", "path": "/fields/System.Tags", "value": "; ".join(kept)})
-                resp = await self._post_work_item(c, wi_type, ops)
         self._raise_for(resp)
         item_id = resp.json()["id"]
         return CreatedWorkItem(id=item_id, url=self.work_item_web_url(item_id))

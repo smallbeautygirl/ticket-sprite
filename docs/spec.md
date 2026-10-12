@@ -89,7 +89,6 @@ PM / FAE / RD 遇到一個需求時，在網頁上被 AI 拷問（grill-with-doc
   - Iteration：沿用 Parent 的 Iteration（Parent 在哪個 Sprint，Ticket 就在哪個 Sprint 的看板上）；沒有 Parent 則留空。
   - Assigned To：留空。
   - Priority（1–4）／Severity（Bug）：AI 建議、Requester 確認。
-  - Tags：`ticket-sprite; role:{pm|fae|rd}`。
 - 附件同步上傳到 Ticket。
 - 開票後 Spec 凍結，Interview 狀態為 `ticketed`，記錄 Ticket id / URL。
 - 不開票：存成 Decision Record（狀態 `decision_record`），有分享連結。

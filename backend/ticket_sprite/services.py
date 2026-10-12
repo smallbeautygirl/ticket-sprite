@@ -840,7 +840,6 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
         title=title,
         description_html=spec_html(deps.settings, interview),
         parent_id=req.parent_id,
-        tags=["ticket-sprite", f"product:{interview.product}", f"role:{interview.role}", f"to:{audience_of(interview)}"],
         priority=req.priority,
         severity=req.severity if wi_type == "Bug" else None,
         attachment_urls=attachment_urls,
