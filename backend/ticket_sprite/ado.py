@@ -379,6 +379,31 @@ class AdoClient:
             headers={"Content-Type": "application/json-patch+json"},
         )
 
+    async def _landing_iteration(self, c: httpx.AsyncClient, parent_id: int | None) -> str | None:
+        """The sprint a new ticket goes on, so it shows on a taskboard someone is looking at: the Parent's
+        sprint when that is running or still ahead, else the running one (between sprints, the next).
+        A long-lived Parent left on a finished sprint, or on the root, would hide its new children."""
+        parent = await self._iteration_of(c, parent_id) if parent_id else None
+        sprints = await self._team_sprints(c)
+        ahead = [path for path, timeframe in sprints if timeframe in ("current", "future")]
+        if parent in ahead:
+            return parent
+        current = next((path for path, timeframe in sprints if timeframe == "current"), None)
+        return current or (ahead[0] if ahead else parent)
+
+    async def _team_sprints(self, c: httpx.AsyncClient) -> list[tuple[str, str]]:
+        """The team's iterations in date order, as (path, past|current|future); empty if unreadable."""
+        resp = await c.get(
+            f"{self._project_url}/{quote(self._s.ado_team)}/_apis/work/teamsettings/iterations",
+            params={"api-version": API_VERSION},
+        )
+        if resp.status_code != 200:
+            return []  # the Parent's sprint is still a fair guess
+        return [
+            (i.get("path", ""), (i.get("attributes") or {}).get("timeFrame", ""))
+            for i in resp.json().get("value") or []
+        ]
+
     async def _iteration_of(self, c: httpx.AsyncClient, item_id: int) -> str | None:
         resp = await c.get(
             f"{self._org_url}/_apis/wit/workitems",
@@ -443,8 +468,7 @@ class AdoClient:
             ops.append({"op": "add", "path": "/relations/-", "value": {"rel": "AttachedFile", "url": url}})
 
         async with self._client() as c:
-            if parent_id and (iteration := await self._iteration_of(c, parent_id)):
-                # Follow the Parent onto its sprint: the root iteration never shows on the taskboard
+            if iteration := await self._landing_iteration(c, parent_id):
                 ops.append({"op": "add", "path": "/fields/System.IterationPath", "value": iteration})
             resp = await self._post_work_item(c, wi_type, ops)
         self._raise_for(resp)

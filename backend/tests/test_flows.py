@@ -549,15 +549,24 @@ async def test_unknown_work_item_type_is_rejected(app, deps, vivian, fake_ado):
     assert r.status_code == 400 and not fake_ado.created
 
 
-async def test_ticket_lands_in_its_parents_iteration(app, deps, vivian, fake_ado):
-    # A Task left in the root iteration never shows on the sprint taskboard under its Parent
-    for parent in (41152, None):
+async def test_ticket_lands_on_a_sprint_that_is_running_or_ahead(app, deps, vivian, fake_ado):
+    # A Task in the root iteration, or in a sprint that has ended, never shows on the current taskboard.
+    # The Parent 41152 is a long-lived story left in SPRINT 1, which is over; 41155 is planned for SPRINT 3.
+    fake_ado.iteration_of[41155] = "Deliver team\\SPRINT 3"
+    for parent in (41152, 41155, None):
         iid = await _spec_ready(vivian, deps, "feature")
         r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "parent_id": parent})
         assert r.status_code == 200, r.text
-    with_parent, without = ({op["path"]: op["value"] for op in c["ops"]} for c in fake_ado.created)
-    assert with_parent["/fields/System.IterationPath"] == "Deliver team\\SPRINT 1"
-    assert "/fields/System.IterationPath" not in without
+    landed = [{op["path"]: op["value"] for op in c["ops"]}["/fields/System.IterationPath"] for c in fake_ado.created]
+    assert landed == ["Deliver team\\SPRINT 2", "Deliver team\\SPRINT 3", "Deliver team\\SPRINT 2"]
+
+
+async def test_ticket_opened_between_sprints_lands_on_the_next_one(app, deps, vivian, fake_ado):
+    fake_ado.team_iterations[2]["attributes"]["timeFrame"] = "future"  # the weekend after SPRINT 1
+    iid = await _spec_ready(vivian, deps, "feature")
+    await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "parent_id": 41152})
+    fields = {op["path"]: op["value"] for op in fake_ado.created[-1]["ops"]}
+    assert fields["/fields/System.IterationPath"] == "Deliver team\\SPRINT 2"
 
 
 async def test_parent_choices_are_the_current_iteration_user_stories(app, vivian, fake_ado):

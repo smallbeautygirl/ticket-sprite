@@ -33,6 +33,15 @@ class FakeAdo:
     # people who edited a work item's description after it was created, and description updates sent
     description_editors: list[str] = field(default_factory=list)
     patched: list[dict] = field(default_factory=list)
+    # work item id → System.IterationPath (anything not listed sits in SPRINT 1)
+    iteration_of: dict[int, str] = field(default_factory=dict)
+    # the team's sprints, as teamsettings/iterations lists them: SPRINT 1 is over, SPRINT 2 runs now
+    team_iterations: list[dict] = field(default_factory=lambda: [
+        _sprint("Deliver team\\2026 2nd Half", "past"),
+        _sprint("Deliver team\\SPRINT 1", "past"),
+        _sprint("Deliver team\\SPRINT 2", "current"),
+        _sprint("Deliver team\\SPRINT 3", "future"),
+    ])
     # the Parent 41152's children: open, in testing, closed lately, closed long ago, removed
     children: dict[int, dict] = field(default_factory=lambda: {
         45772: _child("新增轉發排除規則", "Active", "Vivian Fan"),
@@ -70,6 +79,8 @@ class FakeAdo:
             if "[System.AssignedTo] <> ''" in query:
                 return httpx.Response(200, json={"workItems": [{"id": i} for i in self.assigned]})
             return httpx.Response(200, json={"workItems": [{"id": 41152}]})
+        if path.endswith("/_apis/work/teamsettings/iterations"):
+            return httpx.Response(200, json={"count": len(self.team_iterations), "value": self.team_iterations})
         if path.endswith("/_apis/wit/workitems/41152") and request.method == "GET":
             return httpx.Response(200, json={"id": 41152, "relations": [
                 {"rel": "System.LinkTypes.Hierarchy-Forward",
@@ -89,7 +100,8 @@ class FakeAdo:
                 200,
                 json={"value": [
                     {"id": i, "fields": {"System.Title": "Middleware", "System.WorkItemType": "Feature",
-                                         "System.State": "Active", "System.IterationPath": "Deliver team\\SPRINT 1"}}
+                                         "System.State": "Active",
+                                         "System.IterationPath": self.iteration_of.get(i, "Deliver team\\SPRINT 1")}}
                     for i in ids
                 ]},
             )
@@ -111,6 +123,10 @@ class FakeAdo:
             self.created.append({"type": wi_type, "ops": json.loads(request.content)})
             return httpx.Response(200, json={"id": self.next_id})
         return httpx.Response(404, json={"message": f"unexpected {request.method} {path}"})
+
+
+def _sprint(path: str, timeframe: str) -> dict:
+    return {"name": path.rsplit("\\", 1)[-1], "path": path, "attributes": {"timeFrame": timeframe}}
 
 
 def _child(title: str, state: str, assignee: str | None, closed_days_ago: int | None = None) -> dict:

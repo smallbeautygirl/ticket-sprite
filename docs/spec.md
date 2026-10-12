@@ -86,7 +86,7 @@ PM / FAE / RD 遇到一個需求時，在網頁上被 AI 拷問（grill-with-doc
   - Description：Spec 轉 HTML，加上回到 Interview 的連結。
   - Parent：預設 #41152，可搜尋（輸入 id 或標題關鍵字）更換。
   - Area Path：`Deliver team`。
-  - Iteration：沿用 Parent 的 Iteration（Parent 在哪個 Sprint，Ticket 就在哪個 Sprint 的看板上）；沒有 Parent 則留空。
+  - Iteration：放到團隊看得到的 Sprint。Parent 的 Sprint 還在進行或還沒開始，就沿用它（Parent 排在 SPRINT 3，Ticket 也進 SPRINT 3）；否則（Parent 在已結束的 Sprint 或根節點，例如長期存在的 #41152，或沒有 Parent）放進團隊目前的 Sprint，兩個 Sprint 之間則放下一個。Sprint 依 `ADO_TEAM` 的 iteration 設定（目前兩週一個）。
   - Assigned To：留空。
   - Priority（1–4）／Severity（Bug）：AI 建議、Requester 確認。
 - 附件同步上傳到 Ticket。
