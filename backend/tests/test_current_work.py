@@ -63,3 +63,20 @@ async def test_an_interview_runs_without_current_work_when_ado_is_not_connected(
     await deps.drain()
     ctx = next(c for kind, c in llm.calls if kind == "round")
     assert ctx.current_work is None and "<current_work>" not in round_prompt(ctx)
+
+
+async def test_current_work_marks_the_tickets_you_filed_through_the_sprite(app, deps, vivian, kevin):
+    from ticket_sprite.models import Interview
+
+    async with deps.sessionmaker() as session:
+        session.add(Interview(requester_email="kevin@linkervision.com", product="middleware", role="pm",
+                              request_type="feature", template="grill_product", request_text="x", ticket_id=45736))
+        await session.commit()
+    await vivian.put("/api/me/ado", json=PAT)
+    await vivian.get("/api/work?product=middleware")  # Vivian's fetch fills the cache Kevin reads
+    by_id = {i["id"]: i for i in (await kevin.get("/api/work?product=middleware")).json()["items"]}
+    assert by_id[45736]["requester"] == "kevin@linkervision.com" and by_id[45736]["mine"] is True
+    assert by_id[45736]["interview_id"]
+    assert by_id[45772]["requester"] is None and by_id[45772]["mine"] is False
+    mine_for_vivian = {i["id"]: i["mine"] for i in (await vivian.get("/api/work?product=middleware")).json()["items"]}
+    assert mine_for_vivian[45736] is False

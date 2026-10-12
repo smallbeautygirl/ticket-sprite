@@ -73,6 +73,9 @@ export interface WorkEntry {
   closed_on: string | null;
   url: string;
   prs: WorkPull[];
+  requester: string | null; // who filed it through the sprite
+  interview_id: string | null;
+  mine: boolean;
 }
 
 /** Current Work: the Product's open and lately closed tickets under its Parent. */

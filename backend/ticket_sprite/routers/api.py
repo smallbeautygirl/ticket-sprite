@@ -358,6 +358,19 @@ async def current_work(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except AdoError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+    items = work_json(work)
+    # Who filed each ticket through the sprite: per viewer, so it is looked up fresh rather than cached
+    filed = {
+        ticket_id: (requester, interview_id)
+        for ticket_id, requester, interview_id in await session.execute(
+            select(Interview.ticket_id, Interview.requester_email, Interview.id).where(
+                Interview.ticket_id.in_([i["id"] for i in items])
+            )
+        )
+    }
+    for i in items:
+        requester, interview_id = filed.get(i["id"], (None, None))
+        i.update(requester=requester, interview_id=interview_id, mine=requester == email)
     return {
         "product": p.id,
         "product_label": p.label,
@@ -365,7 +378,7 @@ async def current_work(
         "parent_url": AdoClient(settings, {}).work_item_web_url(work.parent_id),
         "github": work.github,
         "closed_days": RECENTLY_CLOSED_DAYS,
-        "items": work_json(work),
+        "items": items,
     }
 
 

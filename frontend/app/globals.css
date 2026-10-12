@@ -454,13 +454,22 @@ button.ms-cell.blast, button.ms-cell.blast:hover:not(:disabled) { background: #f
 .body .markdown ul, .body .markdown ol { margin: 4px 0 8px; padding-left: 20px; }
 .markdown { overflow-wrap: anywhere; }
 
-/* Current Work: one row per ticket, its PRs beside the title (below it on a phone) */
-.work-group { font-size: 15px; margin: 8px 0 0; }
-.work-prs { display: flex; gap: 6px; flex-wrap: wrap; padding-right: 14px; }
-.work-prs a.badge:hover { text-decoration: none; filter: brightness(0.95); }
-@media (max-width: 640px) {
-  .list .item-row.work-row { flex-wrap: wrap; }
-  .list .item-row.work-row a.item { flex-basis: 100%; flex-wrap: wrap; row-gap: 2px; }
-  .list .item-row.work-row .title { flex-basis: 100%; white-space: normal; order: 2; }
-  .work-row .work-prs { padding: 0 14px 10px; }
-}
+/* Current Work: what a PM chases on top, then one lane per person in RD */
+.work h2 { font-size: 20px; margin: 0; }
+.work h3 { font-family: var(--font-display); font-weight: 400; font-size: 17px; margin: 0; display: flex; align-items: baseline; gap: 8px; }
+.work-lead { font-size: 16px; margin: -4px 0 4px; color: var(--text-2); }
+.work-lead strong { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+.work-chase { box-shadow: var(--shadow-lift); border-color: var(--border-strong); padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+.work-chase-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px 24px; align-items: start; }
+.work-chase-group > p { margin: 2px 0 8px; }
+.work-lanes { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+.work-lane { display: flex; flex-direction: column; gap: 6px; }
+.work-items { list-style: none; margin: 0; padding: 0; }
+.work-item { display: flex; flex-direction: column; gap: 3px; padding: 8px 0; border-top: 1px solid var(--border); }
+.work-items > .work-item:first-child { border-top: none; padding-top: 2px; }
+.work-title { color: var(--text); line-height: 1.45; }
+.work-title:hover { color: var(--accent); }
+.work-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; color: var(--muted); }
+.work-meta a.badge:hover { text-decoration: none; filter: brightness(0.95); }
+.work-id { font-family: var(--font-mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.work-more .work-items { margin-top: -4px; }

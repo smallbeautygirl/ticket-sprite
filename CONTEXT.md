@@ -102,7 +102,7 @@ Ticket 所掛的上層 ADO work item；預設為 Middleware（#41152）。
 _Avoid_: Epic, Feature（指上層時）
 
 **Current Work**:
-Product 的 Parent 底下尚未結案、或 14 天內結案的 Ticket，附上內文寫了 AB#<id> 的 GitHub PR 狀態。畫面上稱「進行中的工作」，讓 PM 開需求前先看 RD 在做什麼；拷問時 AI 也會對照它，指出 Request 跟哪張 Ticket 重疊。
+Product 的 Parent 底下尚未結案、或 14 天內結案的 Ticket，附上內文寫了 AB#<id> 的 GitHub PR 狀態。畫面上稱「RD 在做什麼」：先列 PM 可以去追的（自己透過小精靈開的票、測試中的票、還沒人接的票），再依人列出 Active 的票；拷問時 AI 也會對照它，指出 Request 跟哪張 Ticket 重疊。
 _Avoid_: Backlog, Roadmap, 任務清單
 
 **Notification**:
