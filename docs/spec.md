@@ -86,7 +86,8 @@ PM / FAE / RD 遇到一個需求時，在網頁上被 AI 拷問（grill-with-doc
   - Description：Spec 轉 HTML，加上回到 Interview 的連結。
   - Parent：預設 #41152，可搜尋（輸入 id 或標題關鍵字）更換。
   - Area Path：`Deliver team`。
-  - Iteration、Assigned To：留空。
+  - Iteration：沿用 Parent 的 Iteration（Parent 在哪個 Sprint，Ticket 就在哪個 Sprint 的看板上）；沒有 Parent 則留空。
+  - Assigned To：留空。
   - Priority（1–4）／Severity（Bug）：AI 建議、Requester 確認。
   - Tags：`ticket-sprite; role:{pm|fae|rd}`。
 - 附件同步上傳到 Ticket。

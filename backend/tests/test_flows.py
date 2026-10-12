@@ -558,6 +558,17 @@ async def test_ticket_keeps_only_existing_tags_without_tag_permission(app, deps,
     assert fields["/fields/System.Tags"] == "ticket-sprite; role:pm"  # product:middleware and to:rd are new, dropped
 
 
+async def test_ticket_lands_in_its_parents_iteration(app, deps, vivian, fake_ado):
+    # A Task left in the root iteration never shows on the sprint taskboard under its Parent
+    for parent in (41152, None):
+        iid = await _spec_ready(vivian, deps, "feature")
+        r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "parent_id": parent})
+        assert r.status_code == 200, r.text
+    with_parent, without = ({op["path"]: op["value"] for op in c["ops"]} for c in fake_ado.created)
+    assert with_parent["/fields/System.IterationPath"] == "Deliver team\\SPRINT 1"
+    assert "/fields/System.IterationPath" not in without
+
+
 async def test_parent_choices_are_the_current_iteration_user_stories(app, vivian, fake_ado):
     await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890", "expires_on": "2027-10-01"})
     r = await vivian.get("/api/ado/parents")

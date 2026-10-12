@@ -315,6 +315,17 @@ class AdoClient:
             headers={"Content-Type": "application/json-patch+json"},
         )
 
+    async def _iteration_of(self, c: httpx.AsyncClient, item_id: int) -> str | None:
+        resp = await c.get(
+            f"{self._org_url}/_apis/wit/workitems",
+            params={"ids": str(item_id), "fields": "System.IterationPath", "errorPolicy": "omit",
+                    "api-version": API_VERSION},
+        )
+        if resp.status_code != 200:
+            return None  # a missing iteration only hides the ticket from the sprint board; still open it
+        items = [i for i in resp.json().get("value") or [] if i]
+        return items[0].get("fields", {}).get("System.IterationPath") if items else None
+
     async def _existing_tags(self, c: httpx.AsyncClient) -> set[str]:
         resp = await c.get(f"{self._project_url}/_apis/wit/tags", params={"api-version": API_VERSION})
         if resp.status_code >= 400:
@@ -376,6 +387,9 @@ class AdoClient:
             ops.append({"op": "add", "path": "/relations/-", "value": {"rel": "AttachedFile", "url": url}})
 
         async with self._client() as c:
+            if parent_id and (iteration := await self._iteration_of(c, parent_id)):
+                # Follow the Parent onto its sprint: the root iteration never shows on the taskboard
+                ops.append({"op": "add", "path": "/fields/System.IterationPath", "value": iteration})
             resp = await self._post_work_item(c, wi_type, ops)
             if resp.status_code == 403 and "TF401289" in resp.text and tags:
                 # Not allowed to create tag definitions: keep only the tags the project already has

@@ -73,7 +73,7 @@ class FakeAdo:
                 200,
                 json={"value": [
                     {"id": i, "fields": {"System.Title": "Middleware", "System.WorkItemType": "Feature",
-                                         "System.State": "Active"}}
+                                         "System.State": "Active", "System.IterationPath": "Deliver team\\SPRINT 1"}}
                     for i in ids
                 ]},
             )
