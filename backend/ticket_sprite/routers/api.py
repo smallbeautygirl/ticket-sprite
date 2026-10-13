@@ -313,6 +313,28 @@ async def board_parents(
     return [i.__dict__ for i in items]
 
 
+@router.get("/ado/sprints")
+async def ado_sprints(
+    request: Request,
+    email: str = Depends(current_email),
+    session: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+):
+    """Sprint choices for a ticket: the running one (the default) and those after it, plus the backlog."""
+    ado = await _ado_for(request, session, email, settings)
+    try:
+        sprints = await ado.sprints()
+    except AdoCredentialMissing as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except AdoError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {
+        "sprints": [s.__dict__ for s in sprints],
+        "default": sprints[0].path if sprints else None,  # the running sprint, or the next between sprints
+        "backlog": ado.backlog_iteration,
+    }
+
+
 PEOPLE_CACHE_SECONDS = 3600
 
 
@@ -776,6 +798,7 @@ class TicketIn(BaseModel):
     notify: bool = True
     assignee: str | None = None
     work_item_type: str | None = None
+    iteration: str | None = None
 
 
 @router.post("/interviews/{interview_id}/spec/regenerate")
@@ -845,7 +868,7 @@ async def create_ticket(
             services.TicketRequest(
                 title=body.title, parent_id=body.parent_id, priority=body.priority,
                 severity=body.severity, notify=body.notify, assignee=body.assignee,
-                work_item_type=body.work_item_type,
+                work_item_type=body.work_item_type, iteration=body.iteration,
             ),
         )
     except FlowError as exc:

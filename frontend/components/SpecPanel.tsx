@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { api, ApiError, InterviewDetail, Me, Meta, WORK_ITEM_TYPE, WorkItem } from "@/lib/api";
+import { api, ApiError, InterviewDetail, Me, Meta, WORK_ITEM_TYPE, Sprint, SprintChoices, WorkItem } from "@/lib/api";
 import Markdown from "./Markdown";
 import PersonInput from "./PersonInput";
 import Thinking from "./Thinking";
@@ -48,6 +48,14 @@ const SEVERITY_HINT: Record<string, string> = {
   "4 - Low": "外觀、文字或小瑕疵",
 };
 
+/** "SPRINT 2（10/26–11/6）", with 目前 on the running one. */
+function sprintLabel(s: Sprint): string {
+  const md = (iso: string | null) => (iso ? `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))}` : "");
+  const dates = s.start && s.finish ? `${md(s.start)}–${md(s.finish)}` : "";
+  const parts = [dates, s.current ? "目前" : ""].filter(Boolean).join("，");
+  return parts ? `${s.name}（${parts}）` : s.name;
+}
+
 export default function SpecPanel({ d, me, meta, onChanged, onStop }: Props) {
   const [title, setTitle] = useState(d.title || "");
   const [markdown, setMarkdown] = useState(d.spec_markdown || "");
@@ -60,6 +68,8 @@ export default function SpecPanel({ d, me, meta, onChanged, onStop }: Props) {
   const [boardParents, setBoardParents] = useState<WorkItem[]>([]);
   const [searching, setSearching] = useState(false); // the free search for a Parent off the board
   const [priority, setPriority] = useState<number>(d.suggested_priority ?? 2);
+  const [sprints, setSprints] = useState<SprintChoices | null>(null);
+  const [iteration, setIteration] = useState<string | null>(null);
   const [severity, setSeverity] = useState<string>(d.suggested_severity ?? "3 - Medium");
   const [assignee, setAssignee] = useState(d.assignee ?? "");
   const [wiType, setWiType] = useState<string | null>(null); // null = the default for this Request Type
@@ -79,6 +89,13 @@ export default function SpecPanel({ d, me, meta, onChanged, onStop }: Props) {
   useEffect(() => {
     if (!adoReady) return;
     api.boardParents().then(setBoardParents).catch(() => {});
+    api
+      .adoSprints()
+      .then((c) => {
+        setSprints(c);
+        setIteration((v) => v ?? c.default);
+      })
+      .catch(() => {}); // without the list, the backend picks the running sprint
     if (d.default_parent_id) {
       api.searchWorkItems(String(d.default_parent_id)).then((r) => setParent(r[0] ?? null)).catch(() => {});
     }
@@ -388,6 +405,24 @@ export default function SpecPanel({ d, me, meta, onChanged, onStop }: Props) {
               placeholder="輸入名字或 email 搜尋；留空則不指派"
             />
           </label>
+          {sprints && (sprints.sprints.length > 0 || iteration) && (
+            <label className="field">
+              <span>Sprint</span>
+              <select value={iteration ?? ""} onChange={(e) => setIteration(e.target.value)}>
+                {sprints.sprints.map((s) => (
+                  <option key={s.path} value={s.path}>
+                    {sprintLabel(s)}
+                  </option>
+                ))}
+                <option value={sprints.backlog}>不排 Sprint（只放 Backlog）</option>
+              </select>
+              <span className="small muted">
+                {iteration === sprints.backlog
+                  ? "不會出現在任何 Sprint 看板上，要等有人排進 Sprint。"
+                  : "預設是現在這個 Sprint；排到之後的 Sprint，就會出現在那個 Sprint 的看板上。"}
+              </span>
+            </label>
+          )}
           <div className="grid-2">
             <label className="field">
               <span>Priority（AI 建議 {d.suggested_priority ?? "-"}）</span>
@@ -439,6 +474,7 @@ export default function SpecPanel({ d, me, meta, onChanged, onStop }: Props) {
                       notify,
                       assignee: assignee.trim() || null,
                       work_item_type: ticketType,
+                      iteration,
                     });
                     tab?.location.replace(created.ticket_url);
                   } catch (err) {

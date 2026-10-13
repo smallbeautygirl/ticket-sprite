@@ -569,6 +569,30 @@ async def test_ticket_opened_between_sprints_lands_on_the_next_one(app, deps, vi
     assert fields["/fields/System.IterationPath"] == "Deliver team\\SPRINT 2"
 
 
+async def test_sprint_choices_are_the_running_and_coming_sprints(app, vivian):
+    await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890", "expires_on": "2027-10-01"})
+    r = await vivian.get("/api/ado/sprints")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert [(s["name"], s["start"], s["finish"], s["current"]) for s in body["sprints"]] == [
+        ("SPRINT 2", "2026-10-26", "2026-11-06", True),
+        ("SPRINT 3", "2026-11-09", "2026-11-20", False),
+    ]
+    assert body["default"] == "Deliver team\\SPRINT 2" and body["backlog"] == "Deliver team"
+
+
+async def test_ticket_goes_on_the_sprint_the_requester_picked(app, deps, vivian, fake_ado):
+    for picked in ("Deliver team\\SPRINT 3", "Deliver team"):
+        iid = await _spec_ready(vivian, deps, "feature")
+        r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "parent_id": 41152, "iteration": picked})
+        assert r.status_code == 200, r.text
+    landed = [{op["path"]: op["value"] for op in c["ops"]}["/fields/System.IterationPath"] for c in fake_ado.created]
+    assert landed == ["Deliver team\\SPRINT 3", "Deliver team"]
+    iid = await _spec_ready(vivian, deps, "feature")
+    r = await vivian.post(f"/api/interviews/{iid}/ticket", json={"title": "t", "iteration": "Other project\\SPRINT 1"})
+    assert r.status_code == 400 and len(fake_ado.created) == 2
+
+
 async def test_parent_choices_are_the_current_iteration_user_stories(app, vivian, fake_ado):
     await vivian.put("/api/me/ado", json={"pat": "good-pat-1234567890", "expires_on": "2027-10-01"})
     r = await vivian.get("/api/ado/parents")

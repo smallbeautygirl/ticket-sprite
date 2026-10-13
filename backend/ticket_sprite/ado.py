@@ -122,6 +122,15 @@ def _when(value: str | None) -> datetime | None:
 
 
 @dataclass(frozen=True)
+class Sprint:
+    name: str
+    path: str
+    start: str | None  # YYYY-MM-DD
+    finish: str | None
+    current: bool
+
+
+@dataclass(frozen=True)
 class Person:
     display_name: str
     email: str
@@ -384,25 +393,45 @@ class AdoClient:
         sprint when that is running or still ahead, else the running one (between sprints, the next).
         A long-lived Parent left on a finished sprint, or on the root, would hide its new children."""
         parent = await self._iteration_of(c, parent_id) if parent_id else None
-        sprints = await self._team_sprints(c)
-        ahead = [path for path, timeframe in sprints if timeframe in ("current", "future")]
-        if parent in ahead:
+        ahead = await self._sprints_ahead(c)
+        if parent in {s.path for s in ahead}:
             return parent
-        current = next((path for path, timeframe in sprints if timeframe == "current"), None)
-        return current or (ahead[0] if ahead else parent)
+        return ahead[0].path if ahead else parent
 
-    async def _team_sprints(self, c: httpx.AsyncClient) -> list[tuple[str, str]]:
-        """The team's iterations in date order, as (path, past|current|future); empty if unreadable."""
+    @property
+    def backlog_iteration(self) -> str:
+        """The root iteration: on no sprint, so on the backlog only."""
+        return self._s.ado_project
+
+    async def sprints(self) -> list[Sprint]:
+        """The running sprint (if any) and the ones after it, in date order: what a ticket can go on."""
+        async with self._client() as c:
+            return await self._sprints_ahead(c, strict=True)
+
+    async def _sprints_ahead(self, c: httpx.AsyncClient, strict: bool = False) -> list[Sprint]:
+        """The team's current and future iterations in date order; empty if unreadable (unless strict)."""
         resp = await c.get(
             f"{self._project_url}/{quote(self._s.ado_team)}/_apis/work/teamsettings/iterations",
             params={"api-version": API_VERSION},
         )
         if resp.status_code != 200:
+            if strict:
+                self._raise_for(resp)
             return []  # the Parent's sprint is still a fair guess
-        return [
-            (i.get("path", ""), (i.get("attributes") or {}).get("timeFrame", ""))
-            for i in resp.json().get("value") or []
-        ]
+        out = []
+        for i in resp.json().get("value") or []:
+            a = i.get("attributes") or {}
+            if a.get("timeFrame") in ("current", "future"):
+                out.append(
+                    Sprint(
+                        name=i.get("name", ""),
+                        path=i.get("path", ""),
+                        start=(a.get("startDate") or "")[:10] or None,
+                        finish=(a.get("finishDate") or "")[:10] or None,
+                        current=a.get("timeFrame") == "current",
+                    )
+                )
+        return out
 
     async def _iteration_of(self, c: httpx.AsyncClient, item_id: int) -> str | None:
         resp = await c.get(
@@ -437,6 +466,7 @@ class AdoClient:
         severity: str | None,
         attachment_urls: list[str],
         assigned_to: str | None = None,
+        iteration: str | None = None,  # None = _landing_iteration
     ) -> CreatedWorkItem:
         wi_type = work_item_type
         ops: list[dict] = [
@@ -468,7 +498,7 @@ class AdoClient:
             ops.append({"op": "add", "path": "/relations/-", "value": {"rel": "AttachedFile", "url": url}})
 
         async with self._client() as c:
-            if iteration := await self._landing_iteration(c, parent_id):
+            if iteration := iteration or await self._landing_iteration(c, parent_id):
                 ops.append({"op": "add", "path": "/fields/System.IterationPath", "value": iteration})
             resp = await self._post_work_item(c, wi_type, ops)
         self._raise_for(resp)

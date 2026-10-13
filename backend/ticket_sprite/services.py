@@ -852,6 +852,7 @@ class TicketRequest:
     notify: bool
     assignee: str | None = None
     work_item_type: str | None = None  # None = DEFAULT_WORK_ITEM_TYPE for the Request Type
+    iteration: str | None = None  # a sprint path, or the project root for the backlog; None = AdoClient picks
 
 
 async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, user: str, req: TicketRequest) -> Interview:
@@ -861,6 +862,9 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
         raise FlowError("Severity 不正確")
     if req.priority is not None and req.priority not in (1, 2, 3, 4):
         raise FlowError("Priority 必須是 1-4")
+    project = deps.settings.ado_project
+    if req.iteration and req.iteration != project and not req.iteration.startswith(f"{project}\\"):
+        raise FlowError(f"Sprint 必須在 {project} 底下：{req.iteration}")
     assignee = _assignee(req.assignee)
     wi_type = req.work_item_type or DEFAULT_WORK_ITEM_TYPE[RequestType(interview.request_type)]
     if wi_type not in WORK_ITEM_TYPES:
@@ -884,6 +888,7 @@ async def create_ticket(deps: Deps, session: AsyncSession, interview_id: str, us
         severity=req.severity if wi_type == "Bug" else None,
         attachment_urls=attachment_urls,
         assigned_to=assignee,
+        iteration=req.iteration or None,
     )
     interview.title = title
     interview.assignee_email = assignee

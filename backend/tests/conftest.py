@@ -38,9 +38,9 @@ class FakeAdo:
     # the team's sprints, as teamsettings/iterations lists them: SPRINT 1 is over, SPRINT 2 runs now
     team_iterations: list[dict] = field(default_factory=lambda: [
         _sprint("Deliver team\\2026 2nd Half", "past"),
-        _sprint("Deliver team\\SPRINT 1", "past"),
-        _sprint("Deliver team\\SPRINT 2", "current"),
-        _sprint("Deliver team\\SPRINT 3", "future"),
+        _sprint("Deliver team\\SPRINT 1", "past", "2026-10-12", "2026-10-23"),
+        _sprint("Deliver team\\SPRINT 2", "current", "2026-10-26", "2026-11-06"),
+        _sprint("Deliver team\\SPRINT 3", "future", "2026-11-09", "2026-11-20"),
     ])
     # the Parent 41152's children: open, in testing, closed lately, closed long ago, removed
     children: dict[int, dict] = field(default_factory=lambda: {
@@ -125,8 +125,11 @@ class FakeAdo:
         return httpx.Response(404, json={"message": f"unexpected {request.method} {path}"})
 
 
-def _sprint(path: str, timeframe: str) -> dict:
-    return {"name": path.rsplit("\\", 1)[-1], "path": path, "attributes": {"timeFrame": timeframe}}
+def _sprint(path: str, timeframe: str, start: str = "", finish: str = "") -> dict:
+    attributes = {"timeFrame": timeframe}
+    if start:
+        attributes.update(startDate=f"{start}T00:00:00Z", finishDate=f"{finish}T00:00:00Z")
+    return {"name": path.rsplit("\\", 1)[-1], "path": path, "attributes": attributes}
 
 
 def _child(title: str, state: str, assignee: str | None, closed_days_ago: int | None = None) -> dict:

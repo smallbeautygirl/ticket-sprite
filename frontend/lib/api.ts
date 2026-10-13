@@ -185,6 +185,21 @@ export interface InterviewDetail extends InterviewSummary {
   handoffs: HandoffInfo[];
 }
 
+export interface Sprint {
+  name: string;
+  path: string;
+  start: string | null; // YYYY-MM-DD
+  finish: string | null;
+  current: boolean;
+}
+
+/** Where a ticket can go: the running sprint (default) and later ones, or the backlog. */
+export interface SprintChoices {
+  sprints: Sprint[];
+  default: string | null;
+  backlog: string;
+}
+
 export interface WorkItem {
   id: number;
   title: string;
@@ -252,6 +267,7 @@ export const api = {
   meta: () => request<Meta>("/meta"),
   boardParents: () => request<WorkItem[]>("/ado/parents"),
   adoPeople: () => request<Person[]>("/ado/people"),
+  adoSprints: () => request<SprintChoices>("/ado/sprints"),
   currentWork: (product: string) => request<CurrentWork>(`/work?product=${encodeURIComponent(product)}`),
   searchWorkItems: (q: string) => request<WorkItem[]>(`/ado/work-items?q=${encodeURIComponent(q)}`),
 
@@ -290,6 +306,7 @@ export const api = {
       severity: string | null;
       notify: boolean;
       assignee: string | null;
+      iteration?: string | null;
       work_item_type: string;
     },
   ) => request<{ ticket_id: number; ticket_url: string }>(`/interviews/${id}/ticket`, { method: "POST", body: json(body) }),
