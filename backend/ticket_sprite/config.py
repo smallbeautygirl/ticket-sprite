@@ -35,10 +35,11 @@ class Settings(BaseSettings):
     ado_dev_pat: str = ""  # dev only: shared PAT used when a user has none
 
     # --- Claude ---
+    anthropic_api_key: str = ""  # the company key; in claude_code mode `claude -p` bills it instead of a personal login
     anthropic_model: str = "claude-opus-5-5"
     anthropic_effort: Literal["low", "medium", "high", "xhigh", "max"] = "high"
     llm_mode: Literal["claude", "claude_code", "fake"] = "claude"
-    # claude_code: run the owner's own `claude -p` (their Claude login). Single-user only.
+    # claude_code: run `claude -p`, on ANTHROPIC_API_KEY when set, else the owner's own Claude login (single-user).
     claude_code_bin: str = "claude"
     claude_code_model: str = ""  # empty = the CLI's default model
     claude_code_timeout_seconds: int = 900
@@ -98,7 +99,7 @@ class Settings(BaseSettings):
     @property
     def single_user(self) -> bool:
         """The owner's personal Claude login may only serve the owner, unless they opted into sharing."""
-        return self.llm_mode == "claude_code" and not self.claude_code_shared
+        return self.llm_mode == "claude_code" and not self.anthropic_api_key and not self.claude_code_shared
 
     @property
     def product_root(self) -> Path:

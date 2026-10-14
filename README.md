@@ -43,6 +43,7 @@ docker compose -f docker-compose.single-user.yml up -d --build   # 開 http://<v
 - 開機會自動起來：Docker 開機啟動，兩個服務都是 `restart: unless-stopped`。要停用 `docker compose -f docker-compose.single-user.yml down`。
 - 資料（SQLite、附件、Knowledge Source clone）放在 `data/`。Knowledge Source 的來源 repo 若是群組共用（例如 `/opt/lighthouse-saas-api` 屬於 `docker` 群組），把那個群組的 gid 填進 `KNOWLEDGE_SOURCE_GID`。
 - 改了程式碼後重跑上面的 `up -d --build`。
+- 用公司 API key：`.env` 設 `ANTHROPIC_API_KEY=sk-ant-...`，拿掉 `CLAUDE_DIR` 和 `CLAUDE_CODE_SHARED`，`mkdir -p data/claude` 後重跑 `up -d`。`claude -p` 會改用這把 key 計費，`ALLOWED_EMAILS` 裡的人都能登入，轉交也會打開。每次呼叫的花費會寫進後端 log（`claude -p cost $...`）。
 - 暫時開放給同事試用（還沒有 API key 時）：`.env` 設 `CLAUDE_CODE_SHARED=true`，並把可登入的人列在 `ALLOWED_EMAILS`（含自己）。轉交也會打開。這等於把**個人的 Claude 方案**分給別人用（使用條款與額度都算在擁有者身上），拿到 API key 後請改回 `LLM_MODE=claude`。
 
 - PM、FAE 角色：CLI 在一份只有文件（含 spec）的複本裡執行，看不到程式碼，產出的 Spec 也會精簡、不寫實作細節。RD 角色：直接在產品目錄執行。工作目錄以外的讀取一律被拒絕（`--permission-mode dontAsk`）。

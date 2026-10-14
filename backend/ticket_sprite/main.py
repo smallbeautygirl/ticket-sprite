@@ -37,7 +37,9 @@ def create_app(
         settings.upload_dir.mkdir(parents=True, exist_ok=True)
         if settings.single_user and not settings.owner_email:
             raise RuntimeError("LLM_MODE=claude_code requires OWNER_EMAIL (single-user mode)")
-        if settings.llm_mode == "claude_code" and settings.claude_code_shared:
+        if settings.llm_mode == "claude_code" and settings.anthropic_api_key:
+            log.info("Claude Code runs on ANTHROPIC_API_KEY")
+        elif settings.llm_mode == "claude_code" and settings.claude_code_shared:
             if not settings.allowlist:
                 raise RuntimeError("CLAUDE_CODE_SHARED needs ALLOWED_EMAILS: a personal login is never open to everyone")
             log.warning(

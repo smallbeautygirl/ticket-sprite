@@ -220,3 +220,28 @@ async def test_cancelling_a_run_kills_the_cli(settings, tmp_path):
         await asyncio.wait_for(run, 2)
     with pytest.raises(ProcessLookupError):
         os.kill(pid, 0)
+
+
+async def test_api_key_bills_the_cli_and_serves_everyone(settings, llm, notifier, tmp_path):
+    """With the company key, the CLI gets it in its environment and the app is no longer single-user."""
+    script = tmp_path / "env-claude"
+    script.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os\n"
+        f"open({str(tmp_path / 'key')!r}, 'w').write(os.environ.get('ANTHROPIC_API_KEY', ''))\n"
+        f"print(json.dumps({{'type': 'result', 'subtype': 'success', 'is_error': False, 'total_cost_usd': 0.5, 'structured_output': {ROUND!r}}}))\n",
+        encoding="utf-8",
+    )
+    script.chmod(script.stat().st_mode | stat.S_IEXEC)
+    settings.claude_code_bin = str(script)
+    settings.llm_mode = "claude_code"
+    settings.anthropic_api_key = "sk-ant-test"
+
+    await ClaudeCodeInterviewer(settings).next_round(_ctx(), KnowledgeSource(root=settings.product_root, depth=Depth.DOCS))
+    assert (tmp_path / "key").read_text() == "sk-ant-test"
+
+    app = create_app(settings, llm=llm, notifier=notifier, background_jobs=False)
+    async with app.router.lifespan_context(app):
+        async with client_for(app) as kevin:
+            assert (await kevin.post("/api/auth/login", json={"email": "kevin@linkervision.com"})).status_code == 200
+            assert (await kevin.get("/api/meta")).json()["single_user"] is False

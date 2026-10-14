@@ -1,7 +1,8 @@
-"""Interviewer backed by the owner's own Claude Code CLI (`claude -p`).
+"""Interviewer backed by the Claude Code CLI (`claude -p`).
 
-Single-user mode only: the CLI runs on the owner's Claude login, so the web app
-must serve nobody else (see `Settings.single_user`). Reads are confined by the
+With ANTHROPIC_API_KEY the CLI bills the company key. Without it the CLI runs on
+the owner's own Claude login, so the web app must serve nobody else (see
+`Settings.single_user`). Reads are confined by the
 CLI's working directory: tools may read inside it and the attachment folder,
 and every read elsewhere is denied by `--permission-mode dontAsk`.
 """
@@ -11,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import shutil
 import signal
@@ -22,6 +24,8 @@ from ..knowledge import Depth, KnowledgeSource
 from .llm import EngineError, InterviewContext, round_prompt, spec_prompt, system_prompt
 from .progress import EngineProgress, display_path
 from .schema import ROUND_SCHEMA, SPEC_SCHEMA, RoundResult, SpecResult
+
+log = logging.getLogger(__name__)
 
 TOOL_NOTE = (
     "\nYour tools are Read, Grep and Glob over the current working directory (the product's "
@@ -98,6 +102,12 @@ class ClaudeCodeInterviewer:
             cmd += ["--add-dir", str(d)]
         return cmd
 
+    def _env(self) -> dict[str, str]:
+        env = dict(os.environ)
+        if self._s.anthropic_api_key:
+            env["ANTHROPIC_API_KEY"] = self._s.anthropic_api_key
+        return env
+
     async def _run(
         self,
         ctx: InterviewContext,
@@ -126,6 +136,7 @@ class ClaudeCodeInterviewer:
                     *cmd, cwd=cwd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
                     stdin=asyncio.subprocess.DEVNULL, limit=STREAM_LINE_LIMIT,
                     start_new_session=True,  # its own process group, so stopping it also stops its tools
+                    env=self._env(),
                 )
             except FileNotFoundError as exc:
                 raise EngineError(f"找不到 Claude Code CLI：{self._s.claude_code_bin}") from exc
@@ -147,6 +158,13 @@ class ClaudeCodeInterviewer:
             finally:
                 err = await stderr
 
+        if data is not None:
+            usage = data.get("usage") or {}
+            log.info(
+                "claude -p cost $%.4f: input %s, cache write %s, cache read %s, output %s tokens, %s turns",
+                data.get("total_cost_usd") or 0, usage.get("input_tokens"), usage.get("cache_creation_input_tokens"),
+                usage.get("cache_read_input_tokens"), usage.get("output_tokens"), data.get("num_turns"),
+            )
         if data is None:
             detail = err.decode(errors="ignore").strip()[-300:]
             raise EngineError(f"Claude Code 執行失敗：{detail or proc.returncode}")

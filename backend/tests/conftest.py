@@ -206,6 +206,7 @@ def settings(tmp_path) -> Settings:
         teams_webhook_url="",
         public_base_url="http://sprite.test",
         github_token="gh-token",
+        anthropic_api_key="",
     )
 
 
