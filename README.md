@@ -30,6 +30,22 @@ docker compose up -d --build
 - Knowledge Source 第一次會從 `/opt/lighthouse-saas-api` clone `main` 分支到 volume。注意：用本機路徑當來源時，只看得到那份工作目錄已經 fetch 過的 `main`。要永遠追 GitHub 上的 `main`，就把 `KNOWLEDGE_REPO_SOURCE` 改成 GitHub URL，並掛一把唯讀的 deploy key。
 - Teams 通知：在頻道建一個 Workflows「收到 webhook 時發文到頻道」，把 URL 填進 `TEAMS_WEBHOOK_URL`。
 
+## 正式站與開發站（這台 VM 目前的做法）
+
+| | 正式站 | 開發站 |
+| --- | --- | --- |
+| 目錄 | `~/ticket-sprite-prod`（git worktree，`main`） | `~/ticket-sprite`（`develop`） |
+| compose 專案 | `ticket-sprite-trial` | `ticket-sprite-dev` |
+| 網址 | `:3000` | `:3001`（`SPRITE_PORT=3001`） |
+| Claude | 公司 `ANTHROPIC_API_KEY` | 自己的 Claude Code 登入（`CLAUDE_DIR`），只有 `OWNER_EMAIL` 能登入 |
+| 其他 | | `SESSION_COOKIE=ts_session_dev`、`TEAMS_WEBHOOK_URL` 留空；開票仍是真的 ADO 票 |
+
+兩邊各有自己的 `.env` 和 `data/`。上線：把 `develop` merge 進 `main` 並 push，然後
+
+```bash
+cd ~/ticket-sprite-prod && git pull && docker compose -p ticket-sprite-trial -f docker-compose.single-user.yml up -d --build
+```
+
 ## 單人試用（沒有 API key，用自己的 Claude Code）
 
 拷問改由 `claude -p` 執行，用的是你自己的 Claude 登入。因為個人帳號不能替別人服務，這個模式**只開放 `OWNER_EMAIL` 登入，也不能轉交題目**。

@@ -3,7 +3,11 @@
 # runs on the owner's own Claude Code login: CLAUDE_DIR=~/.claude, mounted read-write so token refreshes persist. Data stays in ./data
 # (SQLite, uploads, the Knowledge Source clone).
 #
-#   docker compose -f docker-compose.single-user.yml up -d --build
+# Production runs from the `main` worktree ~/ticket-sprite-prod, port 3000:
+#   docker compose -p ticket-sprite-trial -f docker-compose.single-user.yml up -d --build
+# Development runs from ~/ticket-sprite on `develop`, with its own .env and ./data (SPRITE_PORT=3001):
+#   docker compose -p ticket-sprite-dev -f docker-compose.single-user.yml up -d --build
+# Images are named after the project, so building one site never replaces the other's.
 #
 # Comes back by itself after a reboot: Docker starts at boot and both services restart unless stopped.
 # Needs SPRITE_UID and SPRITE_GID in .env (see .env.example).
@@ -12,7 +16,6 @@ name: ticket-sprite-trial
 services:
   backend:
     build: ./backend
-    image: ticket-sprite-backend
     restart: unless-stopped
     # The owner's uid, so ./data and ~/.claude stay owned by them
     user: "${SPRITE_UID:?set SPRITE_UID in .env}:${SPRITE_GID:?set SPRITE_GID in .env}"
@@ -37,7 +40,6 @@ services:
 
   frontend:
     build: ./frontend
-    image: ticket-sprite-frontend
     restart: unless-stopped
     environment:
       BACKEND_URL: http://backend:8000

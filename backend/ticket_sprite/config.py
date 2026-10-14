@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     observ_base_url: str = "https://lighthouse-production.visionai.linkervision.ai/observ"
     observ_service_id: str = "e39940ea-1fdf-4527-a3b7-c8d6334e5d2e"
     session_secret: str = "change-me"
+    session_cookie: str = "ts_session"  # cookies ignore ports: a second site on the same host needs its own name
     session_max_age_seconds: int = 60 * 60 * 24 * 7
     allowed_emails: str = ""  # comma-separated trial allowlist; empty = anyone who can log in to Observ
     # comma-separated email=role (pm/fae/rd): the Role someone starts with until they pick their own

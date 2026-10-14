@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .. import services
 from ..ado import DEFAULT_WORK_ITEM_TYPE, SEVERITIES, WORK_ITEM_TYPES, AdoClient, AdoCredentialMissing, AdoCredentialProvider, AdoError, PatCipher, pat_auth_header
-from ..auth import SESSION_COOKIE, LoginFailed, ObservAuthClient, ObservIdentity, current_email, issue_session
+from ..auth import LoginFailed, ObservAuthClient, ObservIdentity, current_email, issue_session
 from ..config import Settings, get_settings
 from ..db import get_session
 from ..products import label as product_label
@@ -81,7 +81,7 @@ async def login(
     await session.commit()
 
     response.set_cookie(
-        SESSION_COOKIE,
+        settings.session_cookie,
         issue_session(settings, identity.email),
         max_age=settings.session_max_age_seconds,
         httponly=True,
@@ -92,8 +92,8 @@ async def login(
 
 
 @router.post("/auth/logout")
-async def logout(response: Response):
-    response.delete_cookie(SESSION_COOKIE)
+async def logout(response: Response, settings: Settings = Depends(get_settings)):
+    response.delete_cookie(settings.session_cookie)
     return {"ok": True}
 
 
